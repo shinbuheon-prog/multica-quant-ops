@@ -102,3 +102,16 @@ Time assumptions:
 
 - sample-mode timestamps are interpreted in `America/New_York`
 - paper execution is blocked outside regular US market hours (`09:30` to `16:00`, weekdays)
+
+## JSON API surface
+
+The project includes a small in-process JSON API layer for integrations and future HTTP wrapping.
+
+```python
+from multica_quant_ops.api.service import WorkflowAPI
+from multica_quant_ops.cli import build_default_workflow
+
+api = WorkflowAPI(build_default_workflow())
+status_code, payload = api.healthcheck()
+workflow_status, workflow_payload = api.run_daily_workflow({...})
+```

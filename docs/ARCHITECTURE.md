@@ -17,6 +17,7 @@ V1 uses a Python-first architecture:
 
 - `src/multica_quant_ops/orchestrator/`
 - `src/multica_quant_ops/agents/`
+- `src/multica_quant_ops/api/`
 - `src/multica_quant_ops/data/`
 - `src/multica_quant_ops/strategies/`
 - `src/multica_quant_ops/backtest/`

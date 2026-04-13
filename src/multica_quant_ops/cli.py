@@ -1,16 +1,14 @@
 import argparse
 import json
-from dataclasses import fields, is_dataclass
 from datetime import datetime, timedelta
-from enum import Enum
 from pathlib import Path
-from typing import Any
 
 from multica_quant_ops.agents.backtest_agent import BacktestAgentService
 from multica_quant_ops.agents.data_agent import DataAgentService
 from multica_quant_ops.agents.ops_agent import OpsAgentService
 from multica_quant_ops.agents.registry import AgentRegistry
 from multica_quant_ops.agents.signal_agent import SignalAgentService
+from multica_quant_ops.api.service import build_request_from_payload, build_workflow_payload
 from multica_quant_ops.backtest.engine import BacktestCriteria
 from multica_quant_ops.data.quality import DataQualityCheck, PriceSnapshot
 from multica_quant_ops.execution.safety import ExecutionSafetyPolicy
@@ -75,38 +73,6 @@ def build_sample_request(
         quantity=quantity,
     )
 
-
-def build_request_from_dict(payload: dict) -> DailyWorkflowRequest:
-    snapshot_payload = payload["snapshot"]
-    quality_payload = payload["quality_check"]
-    backtest_payload = payload["backtest_criteria"]
-    return DailyWorkflowRequest(
-        symbol=payload["symbol"],
-        snapshot=PriceSnapshot(
-            symbol=snapshot_payload["symbol"],
-            as_of=datetime.fromisoformat(snapshot_payload["as_of"]),
-            open_price=snapshot_payload["open_price"],
-            high_price=snapshot_payload["high_price"],
-            low_price=snapshot_payload["low_price"],
-            close_price=snapshot_payload["close_price"],
-            volume=snapshot_payload["volume"],
-        ),
-        now=datetime.fromisoformat(payload["now"]),
-        quality_check=DataQualityCheck(
-            max_age=timedelta(minutes=quality_payload["max_age_minutes"]),
-            min_price=quality_payload.get("min_price", 0.01),
-            min_volume=quality_payload.get("min_volume", 1),
-        ),
-        signal_prices=payload["signal_prices"],
-        backtest_prices=payload["backtest_prices"],
-        backtest_criteria=BacktestCriteria(
-            min_total_return=backtest_payload["min_total_return"],
-            min_win_rate=backtest_payload["min_win_rate"],
-        ),
-        quantity=payload.get("quantity", 1),
-    )
-
-
 def load_request(
     input_path: str | None,
     symbol: str,
@@ -125,40 +91,7 @@ def load_request(
         )
 
     payload = json.loads(Path(input_path).read_text(encoding="utf-8"))
-    return build_request_from_dict(payload)
-
-
-def to_jsonable(value: Any) -> Any:
-    if is_dataclass(value):
-        return {
-            field.name: to_jsonable(getattr(value, field.name))
-            for field in fields(value)
-        }
-    if isinstance(value, dict):
-        return {key: to_jsonable(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [to_jsonable(item) for item in value]
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, timedelta):
-        return int(value.total_seconds() / 60)
-    if isinstance(value, Enum):
-        return value.value
-    return value
-
-
-def build_json_report(
-    request: DailyWorkflowRequest,
-    result: Any,
-    board: InMemoryTaskBoard,
-) -> str:
-    payload = {
-        "request": to_jsonable(request),
-        "result": to_jsonable(result),
-        "tasks": to_jsonable(board.list_tasks()),
-        "audit_log": to_jsonable(board.audit_log()),
-    }
-    return json.dumps(payload, indent=2)
+    return build_request_from_payload(payload)
 
 
 def write_report(report: str, output_path: str | None) -> None:
@@ -213,7 +146,7 @@ def main() -> int:
     )
     result = workflow.run(request)
     report = (
-        build_json_report(request, result, workflow.data_agent.board)
+        json.dumps(build_workflow_payload(request, result, workflow.data_agent.board), indent=2)
         if args.json
         else build_daily_report(request, result)
     )
