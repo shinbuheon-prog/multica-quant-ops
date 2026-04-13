@@ -43,6 +43,20 @@ def test_cli_outside_session_report() -> None:
     assert "Paper execution reason: Paper execution is blocked outside the regular US market session." in result.stdout
 
 
+def test_cli_can_emit_incident_summary() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "multica_quant_ops.cli", "--stale-data", "--incident-summary"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={"PYTHONPATH": "src"},
+    )
+
+    assert "Incident detected for AAPL: data_quality." in result.stdout
+    assert "Stage: data_quality" in result.stdout
+    assert "- Refresh or correct the market snapshot." in result.stdout
+
+
 def test_cli_can_load_input_file_and_write_output() -> None:
     runtime_dir = Path("test-artifacts")
     runtime_dir.mkdir(exist_ok=True)
@@ -109,6 +123,7 @@ def test_cli_can_emit_json_report() -> None:
     payload = json.loads(result.stdout)
 
     assert payload["result"]["blocked_stage"] is None
+    assert payload["incident_summary"]["is_incident"] is False
     assert payload["result"]["paper_order"]["side"] == "buy"
     assert len(payload["tasks"]) == 4
     assert payload["tasks"][-1]["kind"] == "signal"
@@ -127,6 +142,7 @@ def test_cli_json_report_includes_paper_execution_block_reason() -> None:
     payload = json.loads(result.stdout)
 
     assert payload["result"]["blocked_stage"] == "paper_execution"
+    assert payload["incident_summary"]["stage"] == "paper_execution"
     assert payload["result"]["paper_execution_reason"] == (
         "Paper execution is blocked outside the regular US market session."
     )

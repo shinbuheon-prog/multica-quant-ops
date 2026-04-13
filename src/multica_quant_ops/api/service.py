@@ -7,6 +7,7 @@ from multica_quant_ops.backtest.engine import BacktestCriteria
 from multica_quant_ops.data.quality import DataQualityCheck, PriceSnapshot
 from multica_quant_ops.orchestrator.board import InMemoryTaskBoard
 from multica_quant_ops.orchestrator.daily_workflow import DailyWorkflowRequest, DailyWorkflowService
+from multica_quant_ops.reporting.incident_summary import build_incident_summary
 
 
 def build_request_from_payload(payload: dict[str, Any]) -> DailyWorkflowRequest:
@@ -64,11 +65,13 @@ def build_workflow_payload(
     result: Any,
     board: InMemoryTaskBoard,
 ) -> dict[str, Any]:
+    audit_log = board.audit_log()
     return {
         "request": to_jsonable(request),
         "result": to_jsonable(result),
+        "incident_summary": to_jsonable(build_incident_summary(request, result, audit_log)),
         "tasks": to_jsonable(board.list_tasks()),
-        "audit_log": to_jsonable(board.audit_log()),
+        "audit_log": to_jsonable(audit_log),
     }
 
 

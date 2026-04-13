@@ -16,6 +16,7 @@ from multica_quant_ops.models import AgentProfile
 from multica_quant_ops.orchestrator.board import InMemoryTaskBoard
 from multica_quant_ops.orchestrator.daily_workflow import DailyWorkflowRequest, DailyWorkflowService
 from multica_quant_ops.reporting.daily_report import build_daily_report
+from multica_quant_ops.reporting.incident_summary import build_incident_summary, render_incident_summary
 from multica_quant_ops.strategies.momentum import SimpleMomentumStrategy
 
 
@@ -116,6 +117,11 @@ def parse_args() -> argparse.Namespace:
         help="Emit a machine-readable JSON report including tasks and audit events.",
     )
     parser.add_argument(
+        "--incident-summary",
+        action="store_true",
+        help="Emit an operator-focused incident summary instead of the full daily report.",
+    )
+    parser.add_argument(
         "--stale-data",
         action="store_true",
         help="Use a stale snapshot to trigger a data-quality block.",
@@ -145,11 +151,14 @@ def main() -> int:
         outside_session=args.outside_session,
     )
     result = workflow.run(request)
-    report = (
-        json.dumps(build_workflow_payload(request, result, workflow.data_agent.board), indent=2)
-        if args.json
-        else build_daily_report(request, result)
-    )
+    incident_summary = build_incident_summary(request, result, workflow.data_agent.board.audit_log())
+    report = json.dumps(build_workflow_payload(request, result, workflow.data_agent.board), indent=2)
+    if not args.json:
+        report = (
+            render_incident_summary(incident_summary)
+            if args.incident_summary
+            else build_daily_report(request, result)
+        )
     write_report(report, args.output)
     return 0
 

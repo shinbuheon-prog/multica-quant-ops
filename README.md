@@ -99,6 +99,13 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.cli --json
 ```
 
+Emit an operator-focused incident summary:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m multica_quant_ops.cli --stale-data --incident-summary
+```
+
 Time assumptions:
 
 - sample-mode timestamps are interpreted in `America/New_York`

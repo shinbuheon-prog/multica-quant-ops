@@ -44,6 +44,7 @@ def test_run_daily_workflow_returns_structured_payload() -> None:
 
     assert status_code == 200
     assert payload["result"]["blocked_stage"] is None
+    assert payload["incident_summary"]["is_incident"] is False
     assert payload["result"]["paper_order"]["side"] == "buy"
     assert len(payload["tasks"]) == 4
     assert payload["audit_log"][0]["actor"] == "DataAgent"
@@ -58,6 +59,7 @@ def test_run_daily_workflow_returns_paper_execution_block() -> None:
 
     assert status_code == 200
     assert payload["result"]["blocked_stage"] == "paper_execution"
+    assert payload["incident_summary"]["stage"] == "paper_execution"
     assert payload["result"]["paper_execution_reason"] == (
         "Paper execution is blocked outside the regular US market session."
     )

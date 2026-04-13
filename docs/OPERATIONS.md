@@ -45,6 +45,13 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.cli --input examples\sample_request.json --json
 ```
 
+Write an operator-focused incident summary:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m multica_quant_ops.cli --stale-data --incident-summary
+```
+
 ## In-process API operations
 
 Use the in-process API when another Python component needs direct access without HTTP.
@@ -114,6 +121,11 @@ python -m multica_quant_ops.scheduler --input examples\sample_request.json --onc
 `paper_execution`
 - Execution safety checks blocked the proposal.
 - A common reason is running outside the regular US market session.
+
+## Incident summary
+
+The JSON API payload now includes an `incident_summary` object. The CLI can also emit
+an incident-focused text summary when the full daily report is too verbose for triage.
 
 ## Time assumptions
 
