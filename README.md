@@ -29,6 +29,7 @@ This project is inspired by `multica-ai/multica`, but focused on a narrower oper
 - `docs/PRD.md`: product definition
 - `docs/ARCHITECTURE.md`: system design
 - `docs/SAFETY_POLICY.md`: financial and operational guardrails
+- `docs/OPERATIONS.md`: runtime and operator guide
 - `docs/ROADMAP.md`: implementation phases
 - `AGENTS.md`: project instructions for Codex
 - `src/`: application code
@@ -147,3 +148,11 @@ python -m multica_quant_ops.scheduler --input examples\sample_request.json --tim
 ```
 
 Scheduled runs write timestamped reports into `reports/` by default.
+
+## Docs
+
+- [Product Requirements](docs/PRD.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Safety Policy](docs/SAFETY_POLICY.md)
+- [Operations Guide](docs/OPERATIONS.md)
+- [Roadmap](docs/ROADMAP.md)
