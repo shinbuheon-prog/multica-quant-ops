@@ -70,6 +70,12 @@ python -m multica_quant_ops.scheduler --input examples\sample_request.json --onc
 powershell -ExecutionPolicy Bypass -File .\ops\run-daily.ps1
 ```
 
+대시보드 export 생성:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1
+```
+
 티커 기준 same-day paper request 준비:
 
 ```powershell
@@ -92,6 +98,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\prepare-multi-ticker.ps1 -Tickers
 - [Changelog](CHANGELOG.md)
 - [Release v0.1.0](docs/RELEASE_v0.1.0.md)
 - [Alpha Vantage Free Mode](docs/ALPHAVANTAGE_FREE_MODE.md)
+- [GAS Dashboard Guide](docs/GAS_DASHBOARD.md)
 - [Solution Overview](docs/SOLUTION_OVERVIEW.md)
 - [Use Cases](docs/USE_CASES.md)
 - [Workflow Guide](docs/WORKFLOWS.md)

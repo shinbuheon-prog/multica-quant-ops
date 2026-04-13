@@ -110,6 +110,25 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.scheduler --input examples\sample_request.json --once --json
 ```
 
+## 대시보드 export 운영
+
+Google Sheets 대시보드 갱신용 JSON을 생성하려면:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1
+```
+
+이 명령은 기본적으로 `ops/dashboard/dashboard-export.json`을 생성합니다.
+
+이 파일은 다음 정보를 포함합니다.
+
+- 종목별 최신 상태
+- 최근 batch 실행 이력
+- 최근 incident summary 목록
+- Alpha Vantage 무료 호출량 상태
+
+Apps Script 연동 절차는 `docs/GAS_DASHBOARD.md`를 참고합니다.
+
 ## 당일 티커 준비
 
 Prepare a same-day paper-trading request and research brief from a ticker:
