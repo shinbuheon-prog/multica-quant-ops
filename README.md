@@ -83,3 +83,10 @@ Save the report to a file:
 $env:PYTHONPATH="src"
 python -m multica_quant_ops.cli --input examples\sample_request.json --output reports\daily-report.txt
 ```
+
+Emit a machine-readable JSON report with task and audit details:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m multica_quant_ops.cli --json
+```

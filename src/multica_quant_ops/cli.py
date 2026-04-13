@@ -1,7 +1,10 @@
 import argparse
 import json
-from pathlib import Path
+from dataclasses import asdict, is_dataclass
 from datetime import datetime, timedelta
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 from multica_quant_ops.agents.backtest_agent import BacktestAgentService
 from multica_quant_ops.agents.data_agent import DataAgentService
@@ -107,6 +110,36 @@ def load_request(input_path: str | None, symbol: str, quantity: int, stale_data:
     return build_request_from_dict(payload)
 
 
+def to_jsonable(value: Any) -> Any:
+    if is_dataclass(value):
+        return {key: to_jsonable(item) for key, item in asdict(value).items()}
+    if isinstance(value, dict):
+        return {key: to_jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [to_jsonable(item) for item in value]
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, timedelta):
+        return int(value.total_seconds() / 60)
+    if isinstance(value, Enum):
+        return value.value
+    return value
+
+
+def build_json_report(
+    request: DailyWorkflowRequest,
+    result: Any,
+    board: InMemoryTaskBoard,
+) -> str:
+    payload = {
+        "request": to_jsonable(request),
+        "result": to_jsonable(result),
+        "tasks": to_jsonable(board.list_tasks()),
+        "audit_log": to_jsonable(board.audit_log()),
+    }
+    return json.dumps(payload, indent=2)
+
+
 def write_report(report: str, output_path: str | None) -> None:
     if output_path is None:
         print(report)
@@ -123,6 +156,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--quantity", type=int, default=2, help="Paper order quantity for sample mode.")
     parser.add_argument("--input", help="Path to a JSON workflow request.")
     parser.add_argument("--output", help="Optional path to save the daily report.")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a machine-readable JSON report including tasks and audit events.",
+    )
     parser.add_argument(
         "--stale-data",
         action="store_true",
@@ -147,7 +185,12 @@ def main() -> int:
         weak_backtest=args.weak_backtest,
     )
     result = workflow.run(request)
-    write_report(build_daily_report(request, result), args.output)
+    report = (
+        build_json_report(request, result, workflow.data_agent.board)
+        if args.json
+        else build_daily_report(request, result)
+    )
+    write_report(report, args.output)
     return 0
 
 

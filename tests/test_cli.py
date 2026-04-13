@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import json
 from pathlib import Path
 
 
@@ -81,3 +82,41 @@ def test_cli_can_load_input_file_and_write_output() -> None:
 
     assert "Report written to" in result.stdout
     assert "Paper order: buy 2 AAPL" in output_path.read_text(encoding="utf-8")
+
+
+def test_cli_can_emit_json_report() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "multica_quant_ops.cli", "--json"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={"PYTHONPATH": "src"},
+    )
+
+    payload = json.loads(result.stdout)
+
+    assert payload["result"]["blocked_stage"] is None
+    assert payload["result"]["paper_order"]["side"] == "buy"
+    assert len(payload["tasks"]) == 4
+    assert payload["tasks"][-1]["kind"] == "signal"
+    assert payload["audit_log"][0]["to_status"] == "claimed"
+
+
+def test_cli_can_write_json_report_to_output_file() -> None:
+    runtime_dir = Path("test-artifacts")
+    runtime_dir.mkdir(exist_ok=True)
+    output_path = runtime_dir / "report.json"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "multica_quant_ops.cli", "--json", "--output", str(output_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={"PYTHONPATH": "src"},
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+    assert "Report written to" in result.stdout
+    assert payload["request"]["symbol"] == "AAPL"
+    assert payload["audit_log"][-1]["reason"] == "Paper execution proposal created."
