@@ -66,6 +66,8 @@ python -m multica_quant_ops.scheduler --input examples\sample_request.json --onc
 
 ## Docs
 
+- [Changelog](CHANGELOG.md)
+- [Release v0.1.0](docs/RELEASE_v0.1.0.md)
 - [Solution Overview](docs/SOLUTION_OVERVIEW.md)
 - [Use Cases](docs/USE_CASES.md)
 - [Workflow Guide](docs/WORKFLOWS.md)
