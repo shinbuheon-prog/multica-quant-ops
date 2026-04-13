@@ -110,6 +110,28 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.scheduler --input examples\sample_request.json --once --json
 ```
 
+스케줄 실행 후 dashboard export와 텔레그램 알림까지 자동으로 이어가려면:
+
+```powershell
+$env:PYTHONPATH="src"
+$env:TELEGRAM_BOT_TOKEN="your-bot-token"
+$env:TELEGRAM_CHAT_ID="your-chat-id"
+python -m multica_quant_ops.scheduler `
+  --input examples\sample_request.json `
+  --time 09:30 `
+  --timezone America/New_York `
+  --ops-dir ops `
+  --dashboard-output ops\dashboard\dashboard-export.json `
+  --telegram-notify `
+  --telegram-alert-only
+```
+
+이 모드는 실행 후 다음을 자동 수행합니다.
+
+- 일일 리포트 저장
+- dashboard export 갱신
+- alert 조건 충족 시 텔레그램 전송
+
 ## 대시보드 export 운영
 
 Google Sheets 대시보드 갱신용 JSON을 생성하려면:

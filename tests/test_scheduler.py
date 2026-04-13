@@ -4,10 +4,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from multica_quant_ops.scheduler import (
+    PostRunConfig,
     ScheduleConfig,
     build_report_filename,
     next_run_at,
     parse_run_time,
+    run_post_run_actions,
     run_once,
 )
 
@@ -79,3 +81,24 @@ def test_run_once_writes_json_report() -> None:
     assert target.name == "daily-workflow-20260413-093500.json"
     assert payload["result"]["blocked_stage"] is None
     assert payload["result"]["paper_order"]["side"] == "buy"
+
+
+def test_run_post_run_actions_writes_dashboard_export(tmp_path: Path | None = None) -> None:
+    root_dir = Path("test-artifacts") / "scheduler-post-run"
+    root_dir.mkdir(parents=True, exist_ok=True)
+    ops_dir = root_dir / "ops"
+    (ops_dir / "runtime").mkdir(parents=True, exist_ok=True)
+    (ops_dir / "reports").mkdir(parents=True, exist_ok=True)
+    (ops_dir / "incidents").mkdir(parents=True, exist_ok=True)
+    dashboard_output = root_dir / "dashboard" / "dashboard-export.json"
+
+    run_post_run_actions(
+        PostRunConfig(
+            ops_dir=ops_dir,
+            dashboard_output=dashboard_output,
+        )
+    )
+
+    assert dashboard_output.exists()
+    payload = json.loads(dashboard_output.read_text(encoding="utf-8"))
+    assert "overview" in payload

@@ -44,6 +44,7 @@
 - 배치 실행은 `ops/runtime/<timestamp>/batch-summary-ko.txt` 형식의 운영 요약을 남깁니다.
 - 대시보드 export는 기본적으로 `ops/dashboard/dashboard-export.json`에 생성됩니다.
 - 텔레그램 알림은 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 환경변수를 사용합니다.
+- `start-scheduler.ps1`는 스케줄 실행 후 dashboard export와 텔레그램 알림까지 자동으로 이어집니다.
 - Alpha Vantage usage counts are tracked in `ops/runtime/alpha-vantage-usage.json`.
 - Update request payload timestamps and prices before a real paper-ops run.
 - `prepare-same-day-request.ps1` requires `ALPHAVANTAGE_API_KEY`.
