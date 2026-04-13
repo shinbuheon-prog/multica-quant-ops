@@ -42,6 +42,14 @@ def _write_brief(
                 "recommended_actions": ["Review thresholds."],
                 "details": ["Blocked at backtest."],
             },
+            "audit_log": [
+                {
+                    "actor": "BacktestAgent",
+                    "task_title": f"Backtest strategy for {symbol}",
+                    "to_status": "blocked",
+                    "reason": "Backtest failed promotion criteria.",
+                }
+            ],
         },
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -126,6 +134,7 @@ def test_build_dashboard_export_collects_latest_rows() -> None:
     assert payload["overview"]["alpha_vantage_used_calls"] == 21
     assert payload["overview"]["alpha_vantage_remaining_calls"] == 4
     assert payload["dashboard"][0]["symbol"] == "AAPL"
+    assert payload["dashboard"][0]["latest_audit_actor"] == "BacktestAgent"
     assert payload["dashboard"][2]["symbol"] == "TSLA"
     assert payload["batch_runs"][0]["batch_name"] == "batch-20260413-172753"
     assert payload["incidents"][0]["headline"] == "Incident detected for AAPL: backtest."

@@ -1,6 +1,8 @@
 param(
     [string]$DashboardExportPath,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$AlertOnly,
+    [int]$LowCallsThreshold = 5
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,10 +17,14 @@ try {
     $env:PYTHONPATH = Join-Path $root "src"
     $command = @(
         "-m", "multica_quant_ops.telegram_notify",
-        "--dashboard-export", $DashboardExportPath
+        "--dashboard-export", $DashboardExportPath,
+        "--low-calls-threshold", $LowCallsThreshold
     )
     if ($DryRun) {
         $command += "--dry-run"
+    }
+    if ($AlertOnly) {
+        $command += "--alert-only"
     }
     python @command
     if ($LASTEXITCODE -ne 0) {

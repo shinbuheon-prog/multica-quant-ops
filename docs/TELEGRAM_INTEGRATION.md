@@ -15,6 +15,7 @@
 - 준비 완료 종목 수 / 차단 종목 수
 - Alpha Vantage 사용량
 - 종목별 상태 일부
+- 종목별 최근 audit 이벤트 요약
 - 최근 incident headline
 
 즉, 운영자는 텔레그램에서
@@ -44,6 +45,9 @@
 
 이 정보는 audit와 incident, operator report에 담깁니다.
 
+즉, 지금 텔레그램은 `자유 대화 재생`이 아니라
+`누가 어떤 task를 마지막으로 처리했고 어떤 상태에서 멈췄는지`를 요약해서 보여주는 구조입니다.
+
 ## 필요한 환경변수
 
 ```powershell
@@ -69,6 +73,18 @@ powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1 -DryRun
+```
+
+문제가 있을 때만 보내려면:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1 -AlertOnly
+```
+
+남은 호출 경고 기준을 바꾸려면:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1 -AlertOnly -LowCallsThreshold 3
 ```
 
 ## 추천 운영 방식
@@ -101,3 +117,4 @@ powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1 -DryRun
 - batch 결과를 오전/오후 정기 전송
 - Google Sheets 링크 포함
 - incident별 추천 액션 더 자세히 포함
+- `/status`, `/blocked`, `/usage` 같은 텔레그램 봇 명령형 인터페이스

@@ -49,6 +49,8 @@ def _build_dashboard_row(
     workflow = brief_payload["workflow"]
     incident_summary = workflow["incident_summary"]
     request = workflow["request"]
+    audit_log = workflow.get("audit_log", [])
+    latest_audit = audit_log[-1] if audit_log else None
     report_excerpt = _read_text_excerpt(report_path) if report_path is not None and report_path.exists() else ""
     return {
         "symbol": brief["symbol"],
@@ -65,6 +67,10 @@ def _build_dashboard_row(
         "incident_headline": brief["incident_headline"],
         "recommended_actions": incident_summary["recommended_actions"],
         "incident_details": incident_summary["details"],
+        "latest_audit_actor": latest_audit.get("actor") if latest_audit is not None else None,
+        "latest_audit_task": latest_audit.get("task_title") if latest_audit is not None else None,
+        "latest_audit_status": latest_audit.get("to_status") if latest_audit is not None else None,
+        "latest_audit_reason": latest_audit.get("reason") if latest_audit is not None else None,
         "remaining_calls": brief["alpha_vantage_remaining_calls"],
         "used_calls": brief["alpha_vantage_used_calls"],
         "daily_limit": brief["alpha_vantage_daily_limit"],
