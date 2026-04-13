@@ -38,10 +38,13 @@ The guard blocks new calls once the configured daily limit is reached.
 Default free-mode limit:
 
 - `25` calls per day
+- approximately `1` request per second burst limit
 
 The tracker file is written to:
 
 - `ops/runtime/alpha-vantage-usage.json`
+
+The provider layer in this repository spaces free-mode requests automatically to reduce burst-limit failures.
 
 ## Operator Workflow
 

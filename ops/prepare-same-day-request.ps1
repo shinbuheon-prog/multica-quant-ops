@@ -1,10 +1,10 @@
-$ErrorActionPreference = "Stop"
-
 param(
     [Parameter(Mandatory = $true)]
     [string]$Ticker,
     [int]$Quantity = 1
 )
+
+$ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
 $runtimeDir = Join-Path $PSScriptRoot "runtime"
@@ -24,6 +24,9 @@ try {
         --output-request $requestPath `
         --output-brief $briefPath `
         --usage-file $usagePath
+    if ($LASTEXITCODE -ne 0) {
+        throw "same_day preparation failed with exit code $LASTEXITCODE"
+    }
 }
 finally {
     Pop-Location

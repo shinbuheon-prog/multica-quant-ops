@@ -19,6 +19,10 @@ class DailyCallLimitExceededError(ValueError):
     pass
 
 
+class ProviderRateLimitError(ValueError):
+    pass
+
+
 class FileBackedUsageTracker:
     def __init__(self, path: Path, daily_limit: int) -> None:
         self.path = path

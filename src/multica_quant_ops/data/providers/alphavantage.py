@@ -1,4 +1,5 @@
 import json
+import time
 import urllib.parse
 import urllib.request
 from datetime import date, datetime
@@ -6,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from multica_quant_ops.data.providers.base import MarketDataProvider, MarketQuote
-from multica_quant_ops.data.providers.usage import FileBackedUsageTracker, ProviderUsageSnapshot
+from multica_quant_ops.data.providers.usage import (
+    FileBackedUsageTracker,
+    ProviderRateLimitError,
+    ProviderUsageSnapshot,
+)
 
 
 class AlphaVantageMarketDataProvider(MarketDataProvider):
@@ -16,12 +21,15 @@ class AlphaVantageMarketDataProvider(MarketDataProvider):
         entitlement: str | None = None,
         base_url: str = "https://www.alphavantage.co/query",
         usage_tracker: FileBackedUsageTracker | None = None,
+        min_interval_seconds: float = 0.0,
     ) -> None:
         self.api_key = api_key
         self.entitlement = entitlement
         self.base_url = base_url
         self.usage_tracker = usage_tracker
         self._last_usage_snapshot: ProviderUsageSnapshot | None = None
+        self.min_interval_seconds = min_interval_seconds
+        self._last_request_monotonic: float | None = None
 
     def fetch_quote(self, symbol: str) -> MarketQuote:
         payload = self._get_json(
@@ -95,15 +103,29 @@ class AlphaVantageMarketDataProvider(MarketDataProvider):
             api_key=api_key,
             entitlement=entitlement,
             usage_tracker=FileBackedUsageTracker(path=usage_file, daily_limit=daily_limit),
+            min_interval_seconds=1.1,
         )
 
     def _get_json(self, params: dict[str, str]) -> dict[str, Any]:
+        self._respect_min_interval()
         if self.usage_tracker is not None:
             self._last_usage_snapshot = self.usage_tracker.reserve_call(datetime.utcnow())
         query = urllib.parse.urlencode(params)
         url = f"{self.base_url}?{query}"
         with urllib.request.urlopen(url, timeout=20) as response:
             payload = json.loads(response.read().decode("utf-8"))
+        self._last_request_monotonic = time.monotonic()
         if not isinstance(payload, dict):
             raise ValueError("Alpha Vantage response was not a JSON object.")
+        if "Information" in payload or "Note" in payload:
+            message = payload.get("Information") or payload.get("Note")
+            raise ProviderRateLimitError(str(message))
         return payload
+
+    def _respect_min_interval(self) -> None:
+        if self.min_interval_seconds <= 0 or self._last_request_monotonic is None:
+            return
+        elapsed = time.monotonic() - self._last_request_monotonic
+        remaining = self.min_interval_seconds - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
