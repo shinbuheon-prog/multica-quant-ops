@@ -12,6 +12,7 @@ from multica_quant_ops.same_day import (
     serialize_brief,
     serialize_request,
 )
+from multica_quant_ops.reporting.korean_operator import render_korean_prep_report
 
 
 class FakeMarketDataProvider:
@@ -103,3 +104,15 @@ def test_same_day_brief_serializer_includes_usage_fields() -> None:
     brief_payload = serialize_brief(brief)
 
     assert "alpha_vantage_remaining_calls" in brief_payload
+
+
+def test_korean_operator_report_renders_korean_summary() -> None:
+    provider = FakeMarketDataProvider()
+    request = build_same_day_request("AAPL", provider, quantity=2)
+    brief, _ = build_paper_trading_prep_brief(request, provider)
+
+    report = render_korean_prep_report(brief)
+
+    assert "[운영 브리프] AAPL" in report
+    assert "페이퍼 실행 가능 여부" in report
+    assert "실거래 지시가 아니라" in report

@@ -1,38 +1,38 @@
 # Multica Quant Ops
 
-Agent teammate platform for operating a US equities quant trading system.
+미국 주식 퀀트 트레이딩 워크플로우를 paper-trading 기준으로 운영하기 위한 에이전트 팀원 플랫폼입니다.
 
-This project is inspired by `multica-ai/multica`, but focused on a narrower operating model:
+이 프로젝트는 `multica-ai/multica`의 agent teammate 개념을 참고했지만, 현재는 더 좁고 안전한 운영 범위에 집중합니다.
 
-- turn coding agents into named teammates
-- assign research, signal, backtest, data-quality, and operations tasks
-- keep trading execution behind strict safety controls
+- 코딩 에이전트를 역할이 분명한 팀원으로 둡니다.
+- research, signal, backtest, data-quality, operations 태스크를 분리합니다.
+- 트레이딩 실행은 강한 safety control 뒤에 둡니다.
 
-## V1 scope
+## V1 범위
 
-- Research and signal generation
-- Backtesting and daily reporting
-- Data pipeline health checks
-- Paper trading only
-- Human approval required before any live-trading capability is introduced
+- 리서치와 시그널 생성
+- 백테스트와 일일 리포트
+- 데이터 품질 점검
+- paper trading 전용
+- live trading 기능은 사람 승인 전까지 도입하지 않음
 
-## Current surfaces
+## 현재 제공 표면
 
-- CLI for manual runs
-- JSON API for in-process integrations
-- HTTP server for local service-style access
-- scheduler for recurring daily runs
-- reporting with incident summary output
+- 수동 실행용 CLI
+- Python 내부 연동용 JSON API
+- 로컬 서비스형 연동용 HTTP 서버
+- 반복 실행용 스케줄러
+- incident summary를 포함한 리포팅
 
-## Project goals
+## 목표
 
-- Treat agents as operators with explicit roles
-- Make every task auditable
-- Prefer deterministic tests and repeatable runs
-- Separate research from execution
-- Make unsafe actions impossible by default
+- 에이전트를 역할이 분명한 운영 주체로 다룹니다.
+- 모든 태스크가 감사 가능하도록 만듭니다.
+- 결정적 테스트와 반복 가능한 실행을 우선합니다.
+- research와 execution을 분리합니다.
+- unsafe action은 기본적으로 불가능하게 둡니다.
 
-## Local setup
+## 로컬 실행 준비
 
 ```powershell
 python -m venv .venv
@@ -41,43 +41,50 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-## Quick start
+## 빠른 시작
 
-Run the sample daily workflow:
+샘플 일일 워크플로우 실행:
 
 ```powershell
 $env:PYTHONPATH="src"
 python -m multica_quant_ops.cli
 ```
 
-Run the HTTP server:
+HTTP 서버 실행:
 
 ```powershell
 $env:PYTHONPATH="src"
 python -m multica_quant_ops.api.http
 ```
 
-Run the scheduler once:
+스케줄러 1회 실행:
 
 ```powershell
 $env:PYTHONPATH="src"
 python -m multica_quant_ops.scheduler --input examples\sample_request.json --once
 ```
 
-Or use the operator pack:
+운영용 스크립트 팩 사용:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\ops\run-daily.ps1
 ```
 
-Prepare a same-day paper request from a ticker:
+티커 기준 same-day paper request 준비:
 
 ```powershell
 $env:ALPHAVANTAGE_API_KEY="your-key"
 powershell -ExecutionPolicy Bypass -File .\ops\prepare-same-day-request.ps1 -Ticker AAPL
 ```
 
-## Docs
+복수 티커 batch 준비:
+
+```powershell
+$env:ALPHAVANTAGE_API_KEY="your-key"
+powershell -ExecutionPolicy Bypass -File .\ops\prepare-multi-ticker.ps1 -Tickers AAPL,MSFT,TSLA
+```
+
+## 문서
 
 - [Ops Pack](ops/README.md)
 - [Changelog](CHANGELOG.md)

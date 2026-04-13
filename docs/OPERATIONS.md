@@ -1,19 +1,19 @@
-# Operations Guide
+# 운영 가이드
 
-## Purpose
+## 목적
 
-This guide explains how to operate the current V1 surfaces:
+이 문서는 현재 V1 표면을 어떻게 운영하는지 설명합니다.
 
 - CLI
 - in-process JSON API
 - HTTP API server
 - daily scheduler
 
-The project remains paper-trading only. No live execution path is supported.
+이 프로젝트는 paper-trading 전용이며 live execution path는 지원하지 않습니다.
 
-## Local workflow
+## 로컬 실행
 
-Activate the environment and run the test suite first:
+환경을 활성화하고 먼저 테스트를 실행합니다.
 
 ```powershell
 python -m venv .venv
@@ -22,7 +22,7 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-## CLI operations
+## CLI 운영
 
 Run the default daily workflow:
 
@@ -52,7 +52,7 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.cli --stale-data --incident-summary
 ```
 
-## In-process API operations
+## In-process API 운영
 
 Use the in-process API when another Python component needs direct access without HTTP.
 
@@ -64,7 +64,7 @@ api = WorkflowAPI(build_default_workflow())
 status_code, payload = api.run_daily_workflow(...)
 ```
 
-## HTTP API operations
+## HTTP API 운영
 
 Start the HTTP server:
 
@@ -87,7 +87,7 @@ curl -X POST http://127.0.0.1:8000/workflows/daily `
   --data-binary "@examples/sample_request.json"
 ```
 
-## Scheduler operations
+## Scheduler 운영
 
 Run the scheduler once and write a timestamped report:
 
@@ -110,7 +110,7 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.scheduler --input examples\sample_request.json --once --json
 ```
 
-## Same-day ticker preparation
+## 당일 티커 준비
 
 Prepare a same-day paper-trading request and research brief from a ticker:
 
@@ -119,14 +119,21 @@ $env:ALPHAVANTAGE_API_KEY="your-key"
 powershell -ExecutionPolicy Bypass -File .\ops\prepare-same-day-request.ps1 -Ticker AAPL
 ```
 
-This flow is intended for paper-trading preparation only.
+이 흐름은 paper-trading 준비 전용입니다.
 
 - it builds a same-day workflow request from market data
 - it produces a research brief with current price and workflow readiness
 - it does not create a live-trading instruction
 - it tracks daily Alpha Vantage usage and blocks runs beyond the configured free-mode limit
 
-## Expected blocked states
+복수 티커를 한 번에 준비하려면:
+
+```powershell
+$env:ALPHAVANTAGE_API_KEY="your-key"
+powershell -ExecutionPolicy Bypass -File .\ops\prepare-multi-ticker.ps1 -Tickers AAPL,MSFT,TSLA
+```
+
+## 예상 차단 상태
 
 `data_quality`
 - The market snapshot is stale or invalid.
@@ -143,20 +150,20 @@ This flow is intended for paper-trading preparation only.
 The JSON API payload now includes an `incident_summary` object. The CLI can also emit
 an incident-focused text summary when the full daily report is too verbose for triage.
 
-## Time assumptions
+## 시간 가정
 
 - Request timestamps are interpreted from the payload as provided.
 - Sample-mode CLI timestamps are built for `America/New_York`.
 - Paper execution is blocked outside weekday regular hours from `09:30` to `16:00` in `America/New_York`.
 
-## Operator checks before running
+## 실행 전 점검
 
 - Confirm the request payload uses the intended symbol and timestamps.
 - Confirm market-session timing if paper execution is expected.
 - Confirm the report output directory is writable.
 - Review blocked-stage and audit-log output before promoting any operational change.
 
-## Incident notes
+## 인시던트 대응 메모
 
 If a workflow blocks:
 

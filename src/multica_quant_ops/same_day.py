@@ -12,6 +12,7 @@ from multica_quant_ops.data.providers.alphavantage import AlphaVantageMarketData
 from multica_quant_ops.data.providers.base import MarketDataProvider
 from multica_quant_ops.orchestrator.daily_workflow import DailyWorkflowRequest
 from multica_quant_ops.reporting.incident_summary import build_incident_summary
+from multica_quant_ops.reporting.korean_operator import render_korean_prep_report
 
 
 @dataclass(frozen=True)
@@ -172,6 +173,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--quantity", type=int, default=1, help="Paper order quantity.")
     parser.add_argument("--output-request", required=True, help="Path to write the generated request JSON.")
     parser.add_argument("--output-brief", required=True, help="Path to write the research brief JSON.")
+    parser.add_argument("--output-report", required=True, help="Path to write the Korean operator report text.")
     parser.add_argument(
         "--max-age-minutes",
         type=int,
@@ -231,8 +233,12 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
+    report_output = Path(args.output_report)
+    report_output.parent.mkdir(parents=True, exist_ok=True)
+    report_output.write_text(render_korean_prep_report(brief) + "\n", encoding="utf-8")
     print(f"Same-day request written to {request_output}")
     print(f"Paper-trading prep brief written to {brief_output}")
+    print(f"Korean operator report written to {report_output}")
     return 0
 
 

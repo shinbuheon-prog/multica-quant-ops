@@ -11,6 +11,7 @@ $runtimeDir = Join-Path $PSScriptRoot "runtime"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $requestPath = Join-Path $runtimeDir "$Ticker-request-$timestamp.json"
 $briefPath = Join-Path $runtimeDir "$Ticker-brief-$timestamp.json"
+$reportPath = Join-Path $runtimeDir "$Ticker-operator-report-ko-$timestamp.txt"
 $usagePath = Join-Path $runtimeDir "alpha-vantage-usage.json"
 
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
@@ -23,6 +24,7 @@ try {
         --quantity $Quantity `
         --output-request $requestPath `
         --output-brief $briefPath `
+        --output-report $reportPath `
         --usage-file $usagePath
     if ($LASTEXITCODE -ne 0) {
         throw "same_day preparation failed with exit code $LASTEXITCODE"
@@ -34,4 +36,5 @@ finally {
 
 Write-Host "Same-day request prepared at $requestPath"
 Write-Host "Paper-trading prep brief prepared at $briefPath"
+Write-Host "Korean operator report prepared at $reportPath"
 Write-Host "Alpha Vantage usage tracker updated at $usagePath"
