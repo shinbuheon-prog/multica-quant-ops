@@ -9,3 +9,5 @@ pytest-cache-files-*/
 
 test-artifacts/
 reports/
+ops/reports/
+ops/incidents/

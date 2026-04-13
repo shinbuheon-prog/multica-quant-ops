@@ -64,8 +64,15 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.scheduler --input examples\sample_request.json --once
 ```
 
+Or use the operator pack:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\run-daily.ps1
+```
+
 ## Docs
 
+- [Ops Pack](ops/README.md)
 - [Changelog](CHANGELOG.md)
 - [Release v0.1.0](docs/RELEASE_v0.1.0.md)
 - [Solution Overview](docs/SOLUTION_OVERVIEW.md)
