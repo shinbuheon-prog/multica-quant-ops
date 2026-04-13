@@ -55,3 +55,4 @@ def test_same_day_batch_writes_operator_reports(monkeypatch) -> None:
     assert (runtime_dir / "AAPL-operator-report-ko.txt").exists()
     assert (runtime_dir / "MSFT-operator-report-ko.txt").exists()
     assert (runtime_dir / "batch-summary.json").exists()
+    assert (runtime_dir / "batch-summary-ko.txt").exists()

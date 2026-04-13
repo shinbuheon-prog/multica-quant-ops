@@ -4,7 +4,10 @@ import os
 from pathlib import Path
 
 from multica_quant_ops.data.providers.alphavantage import AlphaVantageMarketDataProvider
-from multica_quant_ops.reporting.korean_operator import render_korean_prep_report
+from multica_quant_ops.reporting.korean_operator import (
+    render_korean_batch_summary,
+    render_korean_prep_report,
+)
 from multica_quant_ops.same_day import (
     build_paper_trading_prep_brief,
     build_same_day_request,
@@ -81,6 +84,8 @@ def main() -> int:
 
     summary_path = output_dir / "batch-summary.json"
     summary_path.write_text(json.dumps({"tickers": batch_summary}, indent=2), encoding="utf-8")
+    summary_report_path = output_dir / "batch-summary-ko.txt"
+    summary_report_path.write_text(render_korean_batch_summary(batch_summary) + "\n", encoding="utf-8")
     print(f"Multi-ticker preparation written to {output_dir}")
     return 0
 

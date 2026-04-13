@@ -36,6 +36,8 @@
 - Reports are written into `ops/reports/`.
 - Incident summaries are written into `ops/incidents/`.
 - Same-day generated request and brief files are written into `ops/runtime/`.
+- Same-day 단일/배치 실행은 한국어 operator 리포트 텍스트도 함께 생성합니다.
+- 배치 실행은 `ops/runtime/<timestamp>/batch-summary-ko.txt` 형식의 운영 요약을 남깁니다.
 - Alpha Vantage usage counts are tracked in `ops/runtime/alpha-vantage-usage.json`.
 - Update request payload timestamps and prices before a real paper-ops run.
 - `prepare-same-day-request.ps1` requires `ALPHAVANTAGE_API_KEY`.

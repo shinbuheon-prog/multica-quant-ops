@@ -133,6 +133,14 @@ $env:ALPHAVANTAGE_API_KEY="your-key"
 powershell -ExecutionPolicy Bypass -File .\ops\prepare-multi-ticker.ps1 -Tickers AAPL,MSFT,TSLA
 ```
 
+생성 결과:
+
+- 티커별 request JSON
+- 티커별 brief JSON
+- 티커별 한국어 operator 리포트
+- 전체 비교용 `batch-summary.json`
+- 운영자가 빠르게 읽을 수 있는 `batch-summary-ko.txt`
+
 ## 예상 차단 상태
 
 `data_quality`

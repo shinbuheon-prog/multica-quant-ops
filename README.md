@@ -84,6 +84,8 @@ $env:ALPHAVANTAGE_API_KEY="your-key"
 powershell -ExecutionPolicy Bypass -File .\ops\prepare-multi-ticker.ps1 -Tickers AAPL,MSFT,TSLA
 ```
 
+이 실행은 티커별 JSON/한국어 리포트와 함께 `batch-summary-ko.txt` 운영 요약도 생성합니다.
+
 ## 문서
 
 - [Ops Pack](ops/README.md)

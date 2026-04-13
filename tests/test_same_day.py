@@ -113,6 +113,8 @@ def test_korean_operator_report_renders_korean_summary() -> None:
 
     report = render_korean_prep_report(brief)
 
-    assert "[운영 브리프] AAPL" in report
-    assert "페이퍼 실행 가능 여부" in report
+    assert "[당일 준비 리포트] AAPL" in report
+    assert "관찰 포인트" in report
+    assert "판단 상태" in report
+    assert "다음 액션" in report
     assert "실거래 지시가 아니라" in report
