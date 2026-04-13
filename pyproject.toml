@@ -1,0 +1,19 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+check_untyped_defs = true
+
+[project]
+name = "multica-quant-ops"
+version = "0.1.0"
+description = "Agent teammate platform for US equities quant operations"
+requires-python = ">=3.11"
+
+[project.scripts]
+multica-quant-ops = "multica_quant_ops.cli:main"

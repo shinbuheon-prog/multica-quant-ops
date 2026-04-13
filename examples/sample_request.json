@@ -1,0 +1,25 @@
+{
+  "symbol": "AAPL",
+  "now": "2026-04-13T09:35:00",
+  "snapshot": {
+    "symbol": "AAPL",
+    "as_of": "2026-04-13T09:34:00",
+    "open_price": 200.0,
+    "high_price": 202.0,
+    "low_price": 199.0,
+    "close_price": 201.0,
+    "volume": 1000
+  },
+  "quality_check": {
+    "max_age_minutes": 5,
+    "min_price": 0.01,
+    "min_volume": 1
+  },
+  "signal_prices": [100.0, 101.0, 103.0],
+  "backtest_prices": [100.0, 101.0, 103.0, 104.0, 106.0],
+  "backtest_criteria": {
+    "min_total_return": 0.01,
+    "min_win_rate": 0.5
+  },
+  "quantity": 2
+}
