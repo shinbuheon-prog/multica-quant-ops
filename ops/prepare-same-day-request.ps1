@@ -11,6 +11,7 @@ $runtimeDir = Join-Path $PSScriptRoot "runtime"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $requestPath = Join-Path $runtimeDir "$Ticker-request-$timestamp.json"
 $briefPath = Join-Path $runtimeDir "$Ticker-brief-$timestamp.json"
+$usagePath = Join-Path $runtimeDir "alpha-vantage-usage.json"
 
 New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 
@@ -21,7 +22,8 @@ try {
         --ticker $Ticker `
         --quantity $Quantity `
         --output-request $requestPath `
-        --output-brief $briefPath
+        --output-brief $briefPath `
+        --usage-file $usagePath
 }
 finally {
     Pop-Location
@@ -29,3 +31,4 @@ finally {
 
 Write-Host "Same-day request prepared at $requestPath"
 Write-Host "Paper-trading prep brief prepared at $briefPath"
+Write-Host "Alpha Vantage usage tracker updated at $usagePath"

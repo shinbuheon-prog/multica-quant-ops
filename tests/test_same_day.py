@@ -1,6 +1,11 @@
 from datetime import date
+from pathlib import Path
 
 from multica_quant_ops.data.providers.base import MarketQuote
+from multica_quant_ops.data.providers.usage import (
+    DailyCallLimitExceededError,
+    FileBackedUsageTracker,
+)
 from multica_quant_ops.same_day import (
     build_paper_trading_prep_brief,
     build_same_day_request,
@@ -10,6 +15,9 @@ from multica_quant_ops.same_day import (
 
 
 class FakeMarketDataProvider:
+    def __init__(self) -> None:
+        self.last_usage_snapshot = None
+
     def fetch_quote(self, symbol: str) -> MarketQuote:
         return MarketQuote(
             symbol=symbol,
@@ -62,3 +70,36 @@ def test_same_day_serializers_emit_expected_fields() -> None:
     assert request_payload["snapshot"]["close_price"] == 201.0
     assert brief_payload["current_price"] == 201.0
     assert brief_payload["paper_execution_ready"] is True
+
+
+def test_file_backed_usage_tracker_enforces_daily_limit() -> None:
+    usage_file = Path("test-artifacts") / "alpha-vantage-usage-test.json"
+    if usage_file.exists():
+        usage_file.unlink()
+
+    tracker = FileBackedUsageTracker(path=usage_file, daily_limit=2)
+    now = build_same_day_request("AAPL", FakeMarketDataProvider()).now
+
+    first = tracker.reserve_call(now)
+    second = tracker.reserve_call(now)
+
+    assert first.used_calls == 1
+    assert second.used_calls == 2
+    assert second.remaining_calls == 0
+
+    try:
+        tracker.reserve_call(now)
+    except DailyCallLimitExceededError:
+        pass
+    else:
+        raise AssertionError("Expected the daily limit guard to block the third call.")
+
+
+def test_same_day_brief_serializer_includes_usage_fields() -> None:
+    provider = FakeMarketDataProvider()
+    request = build_same_day_request("AAPL", provider, quantity=2)
+    brief, _ = build_paper_trading_prep_brief(request, provider)
+
+    brief_payload = serialize_brief(brief)
+
+    assert "alpha_vantage_remaining_calls" in brief_payload

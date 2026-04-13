@@ -27,6 +27,9 @@ class PaperTradingPrepBrief:
     paper_execution_ready: bool
     blocked_stage: str | None
     incident_headline: str
+    alpha_vantage_used_calls: int | None
+    alpha_vantage_daily_limit: int | None
+    alpha_vantage_remaining_calls: int | None
     note: str
 
 
@@ -71,6 +74,9 @@ def serialize_brief(brief: PaperTradingPrepBrief) -> dict[str, object]:
         "paper_execution_ready": brief.paper_execution_ready,
         "blocked_stage": brief.blocked_stage,
         "incident_headline": brief.incident_headline,
+        "alpha_vantage_used_calls": brief.alpha_vantage_used_calls,
+        "alpha_vantage_daily_limit": brief.alpha_vantage_daily_limit,
+        "alpha_vantage_remaining_calls": brief.alpha_vantage_remaining_calls,
         "note": brief.note,
     }
 
@@ -128,6 +134,11 @@ def build_paper_trading_prep_brief(
     result = workflow.run(request)
     incident_summary = build_incident_summary(request, result, workflow.data_agent.board.audit_log())
     quote = provider.fetch_quote(request.symbol)
+    usage_snapshot = (
+        provider.last_usage_snapshot
+        if isinstance(provider, AlphaVantageMarketDataProvider)
+        else None
+    )
 
     brief = PaperTradingPrepBrief(
         symbol=request.symbol,
@@ -141,6 +152,9 @@ def build_paper_trading_prep_brief(
         paper_execution_ready=result.paper_order is not None,
         blocked_stage=result.blocked_stage,
         incident_headline=incident_summary.headline,
+        alpha_vantage_used_calls=usage_snapshot.used_calls if usage_snapshot is not None else None,
+        alpha_vantage_daily_limit=usage_snapshot.daily_limit if usage_snapshot is not None else None,
+        alpha_vantage_remaining_calls=usage_snapshot.remaining_calls if usage_snapshot is not None else None,
         note=(
             "Research and paper-trading preparation only. "
             "This output is not a live-trading instruction or personalized investment advice."
@@ -164,6 +178,17 @@ def parse_args() -> argparse.Namespace:
         default=15,
         help="Maximum acceptable age for the quote snapshot.",
     )
+    parser.add_argument(
+        "--daily-limit",
+        type=int,
+        default=25,
+        help="Daily Alpha Vantage call limit to enforce in free-mode.",
+    )
+    parser.add_argument(
+        "--usage-file",
+        required=True,
+        help="Path to the Alpha Vantage usage tracker JSON file.",
+    )
     return parser.parse_args()
 
 
@@ -173,8 +198,10 @@ def main() -> int:
     if not api_key:
         raise SystemExit("ALPHAVANTAGE_API_KEY is required to prepare a same-day request.")
 
-    provider = AlphaVantageMarketDataProvider(
+    provider = AlphaVantageMarketDataProvider.build_free_mode(
         api_key=api_key,
+        usage_file=Path(args.usage_file),
+        daily_limit=args.daily_limit,
         entitlement=os.environ.get("ALPHAVANTAGE_ENTITLEMENT"),
     )
     request = build_same_day_request(

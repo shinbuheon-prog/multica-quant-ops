@@ -8,6 +8,7 @@ This folder is the operator-facing runtime pack for starting paper-trading workf
 - `run-daily.ps1`
 - `run-incident-summary.ps1`
 - `prepare-same-day-request.ps1`
+- `show-alpha-vantage-usage.ps1`
 - `start-http-api.ps1`
 - `start-scheduler.ps1`
 
@@ -33,6 +34,7 @@ This project remains paper-trading only.
 - Reports are written into `ops/reports/`.
 - Incident summaries are written into `ops/incidents/`.
 - Same-day generated request and brief files are written into `ops/runtime/`.
+- Alpha Vantage usage counts are tracked in `ops/runtime/alpha-vantage-usage.json`.
 - Update request payload timestamps and prices before a real paper-ops run.
 - `prepare-same-day-request.ps1` requires `ALPHAVANTAGE_API_KEY`.
 - Per Alpha Vantage's official docs, quote freshness depends on your plan. Default quote behavior is not realtime unless you have the required entitlement.

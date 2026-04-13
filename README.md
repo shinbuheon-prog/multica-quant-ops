@@ -82,6 +82,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\prepare-same-day-request.ps1 -Tic
 - [Ops Pack](ops/README.md)
 - [Changelog](CHANGELOG.md)
 - [Release v0.1.0](docs/RELEASE_v0.1.0.md)
+- [Alpha Vantage Free Mode](docs/ALPHAVANTAGE_FREE_MODE.md)
 - [Solution Overview](docs/SOLUTION_OVERVIEW.md)
 - [Use Cases](docs/USE_CASES.md)
 - [Workflow Guide](docs/WORKFLOWS.md)

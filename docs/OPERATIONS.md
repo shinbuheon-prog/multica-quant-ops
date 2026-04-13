@@ -124,6 +124,7 @@ This flow is intended for paper-trading preparation only.
 - it builds a same-day workflow request from market data
 - it produces a research brief with current price and workflow readiness
 - it does not create a live-trading instruction
+- it tracks daily Alpha Vantage usage and blocks runs beyond the configured free-mode limit
 
 ## Expected blocked states
 

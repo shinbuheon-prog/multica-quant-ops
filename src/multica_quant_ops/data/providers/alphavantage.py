@@ -1,10 +1,12 @@
 import json
 import urllib.parse
 import urllib.request
-from datetime import date
+from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 
 from multica_quant_ops.data.providers.base import MarketDataProvider, MarketQuote
+from multica_quant_ops.data.providers.usage import FileBackedUsageTracker, ProviderUsageSnapshot
 
 
 class AlphaVantageMarketDataProvider(MarketDataProvider):
@@ -13,10 +15,13 @@ class AlphaVantageMarketDataProvider(MarketDataProvider):
         api_key: str,
         entitlement: str | None = None,
         base_url: str = "https://www.alphavantage.co/query",
+        usage_tracker: FileBackedUsageTracker | None = None,
     ) -> None:
         self.api_key = api_key
         self.entitlement = entitlement
         self.base_url = base_url
+        self.usage_tracker = usage_tracker
+        self._last_usage_snapshot: ProviderUsageSnapshot | None = None
 
     def fetch_quote(self, symbol: str) -> MarketQuote:
         payload = self._get_json(
@@ -74,7 +79,27 @@ class AlphaVantageMarketDataProvider(MarketDataProvider):
 
         return list(reversed(closes))
 
+    @property
+    def last_usage_snapshot(self) -> ProviderUsageSnapshot | None:
+        return self._last_usage_snapshot
+
+    @classmethod
+    def build_free_mode(
+        cls,
+        api_key: str,
+        usage_file: Path,
+        daily_limit: int = 25,
+        entitlement: str | None = None,
+    ) -> "AlphaVantageMarketDataProvider":
+        return cls(
+            api_key=api_key,
+            entitlement=entitlement,
+            usage_tracker=FileBackedUsageTracker(path=usage_file, daily_limit=daily_limit),
+        )
+
     def _get_json(self, params: dict[str, str]) -> dict[str, Any]:
+        if self.usage_tracker is not None:
+            self._last_usage_snapshot = self.usage_tracker.reserve_call(datetime.utcnow())
         query = urllib.parse.urlencode(params)
         url = f"{self.base_url}?{query}"
         with urllib.request.urlopen(url, timeout=20) as response:
