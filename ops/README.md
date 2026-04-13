@@ -10,6 +10,7 @@
 - `prepare-same-day-request.ps1`
 - `prepare-multi-ticker.ps1`
 - `export-dashboard.ps1`
+- `notify-telegram.ps1`
 - `show-alpha-vantage-usage.ps1`
 - `start-http-api.ps1`
 - `start-scheduler.ps1`
@@ -32,6 +33,7 @@
 6. triage가 필요하면 `run-incident-summary.ps1`를 실행합니다.
 7. 반복 실행이 필요하면 `start-scheduler.ps1`를 실행합니다.
 8. 스프레드시트 현황판을 갱신하려면 `export-dashboard.ps1`를 실행합니다.
+9. 텔레그램 알림을 보내려면 `notify-telegram.ps1`를 실행합니다.
 
 ## 참고
 
@@ -41,6 +43,7 @@
 - Same-day 단일/배치 실행은 한국어 operator 리포트 텍스트도 함께 생성합니다.
 - 배치 실행은 `ops/runtime/<timestamp>/batch-summary-ko.txt` 형식의 운영 요약을 남깁니다.
 - 대시보드 export는 기본적으로 `ops/dashboard/dashboard-export.json`에 생성됩니다.
+- 텔레그램 알림은 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 환경변수를 사용합니다.
 - Alpha Vantage usage counts are tracked in `ops/runtime/alpha-vantage-usage.json`.
 - Update request payload timestamps and prices before a real paper-ops run.
 - `prepare-same-day-request.ps1` requires `ALPHAVANTAGE_API_KEY`.

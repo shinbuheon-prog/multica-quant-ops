@@ -129,6 +129,32 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1
 
 Apps Script 연동 절차는 `docs/GAS_DASHBOARD.md`를 참고합니다.
 
+## 텔레그램 알림 운영
+
+대시보드 export를 텔레그램으로 요약 전송하려면:
+
+```powershell
+$env:TELEGRAM_BOT_TOKEN="your-bot-token"
+$env:TELEGRAM_CHAT_ID="your-chat-id"
+powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1
+```
+
+먼저 메시지 형식을 확인만 하려면:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1 -DryRun
+```
+
+현재 텔레그램 연동은 다음을 보냅니다.
+
+- 전체 상태 요약
+- 종목별 상태 상위 몇 개
+- 최근 incident headline
+- Alpha Vantage 사용량
+
+이 채널은 에이전트들의 자유 대화 로그를 보내는 것이 아니라,
+`audit 결과와 운영 요약`을 전달하는 채널입니다.
+
 ## 당일 티커 준비
 
 Prepare a same-day paper-trading request and research brief from a ticker:
