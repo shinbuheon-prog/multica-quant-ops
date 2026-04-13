@@ -8,13 +8,21 @@ This project is inspired by `multica-ai/multica`, but focused on a narrower oper
 - assign research, signal, backtest, data-quality, and operations tasks
 - keep trading execution behind strict safety controls
 
-## Version 1 scope
+## V1 scope
 
 - Research and signal generation
 - Backtesting and daily reporting
 - Data pipeline health checks
 - Paper trading only
 - Human approval required before any live-trading capability is introduced
+
+## Current surfaces
+
+- CLI for manual runs
+- JSON API for in-process integrations
+- HTTP server for local service-style access
+- scheduler for recurring daily runs
+- reporting with incident summary output
 
 ## Project goals
 
@@ -23,21 +31,6 @@ This project is inspired by `multica-ai/multica`, but focused on a narrower oper
 - Prefer deterministic tests and repeatable runs
 - Separate research from execution
 - Make unsafe actions impossible by default
-
-## Initial structure
-
-- `docs/PRD.md`: product definition
-- `docs/ARCHITECTURE.md`: system design
-- `docs/SAFETY_POLICY.md`: financial and operational guardrails
-- `docs/OPERATIONS.md`: runtime and operator guide
-- `docs/ROADMAP.md`: implementation phases
-- `AGENTS.md`: project instructions for Codex
-- `src/`: application code
-- `tests/`: test suite
-
-## Next step
-
-Run Codex inside this folder and start from Phase 0 in `docs/ROADMAP.md`.
 
 ## Local setup
 
@@ -48,7 +41,7 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-## CLI demo
+## Quick start
 
 Run the sample daily workflow:
 
@@ -57,107 +50,25 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.cli
 ```
 
-Trigger a blocked data-quality run:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m multica_quant_ops.cli --stale-data
-```
-
-Trigger a blocked backtest run:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m multica_quant_ops.cli --weak-backtest
-```
-
-Trigger a blocked paper-execution run outside the regular US market session:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m multica_quant_ops.cli --outside-session
-```
-
-Run from a JSON request file:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m multica_quant_ops.cli --input examples\sample_request.json
-```
-
-Save the report to a file:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m multica_quant_ops.cli --input examples\sample_request.json --output reports\daily-report.txt
-```
-
-Emit a machine-readable JSON report with task and audit details:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m multica_quant_ops.cli --json
-```
-
-Emit an operator-focused incident summary:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m multica_quant_ops.cli --stale-data --incident-summary
-```
-
-Time assumptions:
-
-- sample-mode timestamps are interpreted in `America/New_York`
-- paper execution is blocked outside regular US market hours (`09:30` to `16:00`, weekdays)
-
-## JSON API surface
-
-The project includes a small in-process JSON API layer for integrations and future HTTP wrapping.
-
-```python
-from multica_quant_ops.api.service import WorkflowAPI
-from multica_quant_ops.cli import build_default_workflow
-
-api = WorkflowAPI(build_default_workflow())
-status_code, payload = api.healthcheck()
-workflow_status, workflow_payload = api.run_daily_workflow({...})
-```
-
-## HTTP server
-
-Run the built-in HTTP wrapper:
+Run the HTTP server:
 
 ```powershell
 $env:PYTHONPATH="src"
 python -m multica_quant_ops.api.http
 ```
 
-Available endpoints:
-
-- `GET /health`
-- `POST /workflows/daily`
-
-## Scheduler
-
-Run a single scheduled execution immediately:
+Run the scheduler once:
 
 ```powershell
 $env:PYTHONPATH="src"
 python -m multica_quant_ops.scheduler --input examples\sample_request.json --once
 ```
 
-Start the daily scheduling loop:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m multica_quant_ops.scheduler --input examples\sample_request.json --time 09:30 --timezone America/New_York
-```
-
-Scheduled runs write timestamped reports into `reports/` by default.
-
 ## Docs
 
+- [Solution Overview](docs/SOLUTION_OVERVIEW.md)
+- [Use Cases](docs/USE_CASES.md)
+- [Workflow Guide](docs/WORKFLOWS.md)
 - [Product Requirements](docs/PRD.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Safety Policy](docs/SAFETY_POLICY.md)
