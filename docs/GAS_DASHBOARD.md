@@ -22,7 +22,7 @@
 - `Dashboard`: 종목별 현재가, 시그널, blocked stage, 운영 헤드라인
 - `Batch Runs`: 최근 batch 실행 이력
 - `Incidents`: 최근 incident summary 목록
-- `Config`: Google Drive 파일 ID, 마지막 새로고침 시각
+- `Config`: Google Drive 파일 ID, 마지막 새로고침 시각, watchlist/표시 옵션
 
 ## 로컬 export 생성
 
@@ -61,13 +61,32 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1 `
 
 초기 렌더링 후 색상이나 표가 흐트러졌다면 `Quant Ops -> 서식 다시 적용`을 실행하면 됩니다.
 
+## Config 시트 옵션
+
+기본 키는 다음과 같습니다.
+
+- `dashboard_export_file_id`: Google Drive JSON 파일 ID
+- `last_refresh_at`: 마지막 새로고침 시각
+- `watchlist_tickers`: 쉼표 구분 감시 티커 목록
+- `dashboard_max_rows`: Dashboard 시트 최대 표시 행 수
+- `batch_runs_max_rows`: Batch Runs 시트 최대 표시 행 수
+- `incidents_max_rows`: Incidents 시트 최대 표시 행 수
+
+예시:
+
+- `watchlist_tickers` = `AAPL,MSFT,TSLA`
+- `dashboard_max_rows` = `10`
+
+`watchlist_tickers`를 비워 두면 export에 들어 있는 전체 종목을 표시합니다.
+
 ## 대시보드에 보이는 내용
 
 `Overview`
 - export 생성 시각
-- 종목 수
+- 표시 종목 수
 - 준비 완료 종목 수
 - 차단 종목 수
+- 전체 종목 수
 - Alpha Vantage 사용량과 남은 호출 수
 - 준비 상태 요약 차트
 
@@ -104,8 +123,9 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1 `
 
 1. 당일 same-day 또는 batch 실행
 2. `ops/export-dashboard.ps1` 실행
-3. Google Sheets에서 `대시보드 새로고침`
-4. `Dashboard`와 `Incidents` 시트 확인
+3. 필요하면 `Config` 시트에서 watchlist와 최대 행 수 조정
+4. Google Sheets에서 `대시보드 새로고침`
+5. `Dashboard`와 `Incidents` 시트 확인
 
 ## 주의 사항
 

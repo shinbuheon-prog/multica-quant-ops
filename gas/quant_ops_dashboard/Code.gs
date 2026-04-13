@@ -10,19 +10,23 @@ function refreshDashboardFromDrive() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const configSheet = ensureSheet_(spreadsheet, 'Config');
   ensureConfigLayout_(configSheet);
+  const config = readConfig_(configSheet);
 
-  const fileId = String(configSheet.getRange('B2').getValue()).trim();
+  const fileId = config.dashboardExportFileId;
   if (!fileId) {
     throw new Error('Config 시트 B2 셀에 dashboard export JSON 파일 ID를 입력하세요.');
   }
 
   const file = DriveApp.getFileById(fileId);
   const payload = JSON.parse(file.getBlob().getDataAsString('UTF-8'));
+  const dashboardItems = filterDashboardItems_(payload.dashboard || [], config);
+  const batchRuns = limitItems_(payload.batch_runs || [], config.batchRunsMaxRows);
+  const incidents = limitItems_(payload.incidents || [], config.incidentsMaxRows);
 
-  writeOverviewSheet_(spreadsheet, payload);
-  writeDashboardSheet_(spreadsheet, payload.dashboard || []);
-  writeBatchRunsSheet_(spreadsheet, payload.batch_runs || []);
-  writeIncidentsSheet_(spreadsheet, payload.incidents || []);
+  writeOverviewSheet_(spreadsheet, payload, dashboardItems);
+  writeDashboardSheet_(spreadsheet, dashboardItems);
+  writeBatchRunsSheet_(spreadsheet, batchRuns);
+  writeIncidentsSheet_(spreadsheet, incidents);
   applyDashboardFormatting();
 
   configSheet.getRange('B3').setValue(new Date());
@@ -41,19 +45,88 @@ function ensureConfigLayout_(sheet) {
     ['key', 'value'],
     ['dashboard_export_file_id', ''],
     ['last_refresh_at', ''],
+    ['watchlist_tickers', ''],
+    ['dashboard_max_rows', '20'],
+    ['batch_runs_max_rows', '10'],
+    ['incidents_max_rows', '10'],
   ];
-  sheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+  const existingRows = sheet.getLastRow();
+  const existingKeys = existingRows > 0
+    ? sheet.getRange(1, 1, existingRows, 2).getValues()
+    : [];
+  const currentValues = {};
+  existingKeys.forEach(function(row) {
+    const key = String(row[0] || '').trim();
+    if (key) {
+      currentValues[key] = row[1];
+    }
+  });
+
+  const mergedRows = rows.map(function(row) {
+    const key = row[0];
+    return [key, Object.prototype.hasOwnProperty.call(currentValues, key) ? currentValues[key] : row[1]];
+  });
+
+  sheet.clear();
+  sheet.getRange(1, 1, mergedRows.length, mergedRows[0].length).setValues(mergedRows);
+  sheet.autoResizeColumns(1, 2);
 }
 
-function writeOverviewSheet_(spreadsheet, payload) {
+function readConfig_(sheet) {
+  const values = sheet.getRange(1, 1, sheet.getLastRow(), 2).getValues();
+  const config = {};
+  values.forEach(function(row) {
+    const key = String(row[0] || '').trim();
+    if (key) {
+      config[key] = row[1];
+    }
+  });
+
+  return {
+    dashboardExportFileId: String(config.dashboard_export_file_id || '').trim(),
+    watchlistTickers: parseTickerList_(config.watchlist_tickers),
+    dashboardMaxRows: parsePositiveInt_(config.dashboard_max_rows, 20),
+    batchRunsMaxRows: parsePositiveInt_(config.batch_runs_max_rows, 10),
+    incidentsMaxRows: parsePositiveInt_(config.incidents_max_rows, 10),
+  };
+}
+
+function parseTickerList_(value) {
+  return String(value || '')
+    .split(',')
+    .map(function(item) { return item.trim().toUpperCase(); })
+    .filter(function(item) { return item !== ''; });
+}
+
+function parsePositiveInt_(value, defaultValue) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : defaultValue;
+}
+
+function limitItems_(items, maxRows) {
+  return items.slice(0, maxRows);
+}
+
+function filterDashboardItems_(items, config) {
+  let filtered = items.slice();
+  if (config.watchlistTickers.length > 0) {
+    filtered = filtered.filter(function(item) {
+      return config.watchlistTickers.indexOf(String(item.symbol || '').toUpperCase()) !== -1;
+    });
+  }
+  return limitItems_(filtered, config.dashboardMaxRows);
+}
+
+function writeOverviewSheet_(spreadsheet, payload, dashboardItems) {
   const sheet = ensureSheet_(spreadsheet, 'Overview');
   const overview = payload.overview || {};
   const rows = [
     ['항목', '값'],
     ['생성 시각', payload.generated_at || ''],
-    ['종목 수', overview.total_tickers || 0],
-    ['준비 완료 종목 수', overview.ready_tickers || 0],
-    ['차단 종목 수', overview.blocked_tickers || 0],
+    ['표시 종목 수', dashboardItems.length],
+    ['준비 완료 종목 수', countReadyTickers_(dashboardItems)],
+    ['차단 종목 수', countBlockedTickers_(dashboardItems)],
+    ['전체 종목 수', overview.total_tickers || 0],
     ['Alpha Vantage 사용일', overview.alpha_vantage_usage_date || ''],
     ['Alpha Vantage 사용량', overview.alpha_vantage_used_calls || ''],
     ['Alpha Vantage 일일 한도', overview.alpha_vantage_daily_limit || ''],
@@ -64,6 +137,18 @@ function writeOverviewSheet_(spreadsheet, payload) {
   ];
   writeTable_(sheet, rows);
   writeOverviewChart_(sheet);
+}
+
+function countReadyTickers_(items) {
+  return items.filter(function(item) {
+    return Boolean(item.paper_execution_ready);
+  }).length;
+}
+
+function countBlockedTickers_(items) {
+  return items.filter(function(item) {
+    return Boolean(item.blocked_stage);
+  }).length;
 }
 
 function writeDashboardSheet_(spreadsheet, items) {
