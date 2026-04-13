@@ -115,3 +115,17 @@ api = WorkflowAPI(build_default_workflow())
 status_code, payload = api.healthcheck()
 workflow_status, workflow_payload = api.run_daily_workflow({...})
 ```
+
+## HTTP server
+
+Run the built-in HTTP wrapper:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m multica_quant_ops.api.http
+```
+
+Available endpoints:
+
+- `GET /health`
+- `POST /workflows/daily`
