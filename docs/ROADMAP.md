@@ -30,3 +30,8 @@
 - add dashboard or API surface
 - add scheduling
 - add incident and daily summary workflows
+
+Status notes:
+
+- API surface added
+- scheduling entry point added

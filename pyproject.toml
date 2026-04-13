@@ -18,3 +18,4 @@ requires-python = ">=3.11"
 [project.scripts]
 multica-quant-ops = "multica_quant_ops.cli:main"
 multica-quant-ops-api = "multica_quant_ops.api.http:main"
+multica-quant-ops-scheduler = "multica_quant_ops.scheduler:main"

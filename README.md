@@ -129,3 +129,21 @@ Available endpoints:
 
 - `GET /health`
 - `POST /workflows/daily`
+
+## Scheduler
+
+Run a single scheduled execution immediately:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m multica_quant_ops.scheduler --input examples\sample_request.json --once
+```
+
+Start the daily scheduling loop:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m multica_quant_ops.scheduler --input examples\sample_request.json --time 09:30 --timezone America/New_York
+```
+
+Scheduled runs write timestamped reports into `reports/` by default.
