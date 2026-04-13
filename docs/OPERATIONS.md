@@ -110,6 +110,21 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.scheduler --input examples\sample_request.json --once --json
 ```
 
+## Same-day ticker preparation
+
+Prepare a same-day paper-trading request and research brief from a ticker:
+
+```powershell
+$env:ALPHAVANTAGE_API_KEY="your-key"
+powershell -ExecutionPolicy Bypass -File .\ops\prepare-same-day-request.ps1 -Ticker AAPL
+```
+
+This flow is intended for paper-trading preparation only.
+
+- it builds a same-day workflow request from market data
+- it produces a research brief with current price and workflow readiness
+- it does not create a live-trading instruction
+
 ## Expected blocked states
 
 `data_quality`

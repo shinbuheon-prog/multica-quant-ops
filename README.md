@@ -70,6 +70,13 @@ Or use the operator pack:
 powershell -ExecutionPolicy Bypass -File .\ops\run-daily.ps1
 ```
 
+Prepare a same-day paper request from a ticker:
+
+```powershell
+$env:ALPHAVANTAGE_API_KEY="your-key"
+powershell -ExecutionPolicy Bypass -File .\ops\prepare-same-day-request.ps1 -Ticker AAPL
+```
+
 ## Docs
 
 - [Ops Pack](ops/README.md)
