@@ -38,5 +38,7 @@ def build_daily_report(request: DailyWorkflowRequest, result: DailyWorkflowResul
         lines.append(f"Paper order rationale: {result.paper_order.rationale}")
     else:
         lines.append("Paper order: not created")
+        if result.paper_execution_reason is not None:
+            lines.append(f"Paper execution reason: {result.paper_execution_reason}")
 
     return "\n".join(lines)

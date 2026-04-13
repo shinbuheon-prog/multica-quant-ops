@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from multica_quant_ops.backtest.engine import BacktestResult
 from multica_quant_ops.data.quality import DataQualityResult
@@ -19,9 +20,10 @@ def build_paper_order_proposal(
     data_quality: DataQualityResult,
     backtest_result: BacktestResult,
     safety_policy: ExecutionSafetyPolicy,
+    market_time: datetime,
     quantity: int = 1,
 ) -> PaperOrderProposal:
-    safety_policy.assert_paper_execution_enabled()
+    safety_policy.assert_paper_execution_allowed(market_time)
 
     if data_quality.blocks_downstream:
         raise ValueError("Paper execution is blocked by failed data quality checks.")

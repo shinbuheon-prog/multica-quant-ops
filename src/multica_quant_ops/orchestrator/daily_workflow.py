@@ -31,6 +31,7 @@ class DailyWorkflowResult:
     backtest_result: BacktestResult | None
     paper_order: PaperOrderProposal | None
     blocked_stage: str | None
+    paper_execution_reason: str | None = None
 
 
 class DailyWorkflowService:
@@ -121,8 +122,18 @@ class DailyWorkflowService:
             signal=signal_run.signal,
             data_quality=data_run.result,
             backtest_result=backtest_run.result,
+            market_time=request.now,
             quantity=request.quantity,
         )
+        if paper_run.proposal is None:
+            return DailyWorkflowResult(
+                data_quality_result=data_run.result,
+                signal=signal_run.signal,
+                backtest_result=backtest_run.result,
+                paper_order=None,
+                blocked_stage="paper_execution",
+                paper_execution_reason=paper_run.blocked_reason,
+            )
 
         return DailyWorkflowResult(
             data_quality_result=data_run.result,

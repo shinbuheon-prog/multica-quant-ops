@@ -121,3 +121,33 @@ def test_daily_workflow_stops_on_failed_backtest() -> None:
     assert result.backtest_result is not None
     assert result.backtest_result.approved_for_paper_trading is False
     assert result.paper_order is None
+
+
+def test_daily_workflow_stops_on_failed_paper_execution_gate() -> None:
+    service = build_workflow_service()
+    now = datetime(2026, 4, 13, 7, 0, 0)
+    request = DailyWorkflowRequest(
+        symbol="AAPL",
+        snapshot=PriceSnapshot(
+            symbol="AAPL",
+            as_of=now - timedelta(minutes=1),
+            open_price=200.0,
+            high_price=202.0,
+            low_price=199.0,
+            close_price=201.0,
+            volume=1000,
+        ),
+        now=now,
+        quality_check=DataQualityCheck(max_age=timedelta(minutes=5)),
+        signal_prices=[100.0, 101.0, 103.0],
+        backtest_prices=[100.0, 101.0, 103.0, 104.0, 106.0],
+        backtest_criteria=BacktestCriteria(min_total_return=0.01, min_win_rate=0.5),
+    )
+
+    result = service.run(request)
+
+    assert result.blocked_stage == "paper_execution"
+    assert result.signal is not None
+    assert result.backtest_result is not None
+    assert result.paper_order is None
+    assert result.paper_execution_reason is not None

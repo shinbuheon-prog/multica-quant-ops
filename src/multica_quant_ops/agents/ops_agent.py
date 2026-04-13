@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from multica_quant_ops.backtest.engine import BacktestResult
 from multica_quant_ops.data.quality import DataQualityResult
@@ -12,7 +13,8 @@ from multica_quant_ops.strategies.signals import Signal
 @dataclass(frozen=True)
 class PaperExecutionRun:
     task: Task
-    proposal: PaperOrderProposal
+    proposal: PaperOrderProposal | None
+    blocked_reason: str | None = None
 
 
 class OpsAgentService:
@@ -34,6 +36,7 @@ class OpsAgentService:
         signal: Signal,
         data_quality: DataQualityResult,
         backtest_result: BacktestResult,
+        market_time: datetime,
         quantity: int = 1,
     ) -> PaperExecutionRun:
         task = self.board.get_task(task_id)
@@ -48,13 +51,24 @@ class OpsAgentService:
             actor=actor,
             reason="Starting paper execution gate.",
         )
-        proposal = build_paper_order_proposal(
-            signal=signal,
-            data_quality=data_quality,
-            backtest_result=backtest_result,
-            safety_policy=self.safety_policy,
-            quantity=quantity,
-        )
+        try:
+            proposal = build_paper_order_proposal(
+                signal=signal,
+                data_quality=data_quality,
+                backtest_result=backtest_result,
+                safety_policy=self.safety_policy,
+                market_time=market_time,
+                quantity=quantity,
+            )
+        except ValueError as exc:
+            updated_task = self.board.transition(
+                task_id=task_id,
+                to_status=TaskStatus.BLOCKED,
+                actor=actor,
+                reason=str(exc),
+            )
+            return PaperExecutionRun(task=updated_task, proposal=None, blocked_reason=str(exc))
+
         updated_task = self.board.transition(
             task_id=task_id,
             to_status=TaskStatus.DONE,

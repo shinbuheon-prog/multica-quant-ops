@@ -59,6 +59,7 @@ def test_build_paper_order_proposal_requires_all_gates() -> None:
         data_quality=passing_data_quality(),
         backtest_result=passing_backtest(),
         safety_policy=ExecutionSafetyPolicy(),
+        market_time=datetime(2026, 4, 13, 9, 35, 0),
         quantity=5,
     )
 
@@ -86,6 +87,7 @@ def test_paper_execution_rejects_failed_backtest() -> None:
             data_quality=passing_data_quality(),
             backtest_result=failed_backtest,
             safety_policy=ExecutionSafetyPolicy(),
+            market_time=datetime(2026, 4, 13, 9, 35, 0),
         )
 
 
@@ -103,6 +105,7 @@ def test_paper_execution_respects_kill_switch() -> None:
             data_quality=passing_data_quality(),
             backtest_result=passing_backtest(),
             safety_policy=ExecutionSafetyPolicy(kill_switch_enabled=True),
+            market_time=datetime(2026, 4, 13, 9, 35, 0),
         )
 
 
@@ -123,6 +126,7 @@ def test_ops_agent_creates_paper_order_when_all_gates_pass() -> None:
         ),
         data_quality=passing_data_quality(),
         backtest_result=passing_backtest(),
+        market_time=datetime(2026, 4, 13, 9, 35, 0),
         quantity=3,
     )
 
@@ -148,4 +152,49 @@ def test_ops_agent_requires_claimed_task() -> None:
             ),
             data_quality=passing_data_quality(),
             backtest_result=passing_backtest(),
+            market_time=datetime(2026, 4, 13, 9, 35, 0),
         )
+
+
+def test_paper_execution_blocks_outside_regular_market_session() -> None:
+    signal = Signal(
+        symbol="AAPL",
+        direction=SignalDirection.LONG,
+        confidence=0.7,
+        rationale="Positive momentum.",
+    )
+
+    with pytest.raises(ValueError, match="regular US market session"):
+        build_paper_order_proposal(
+            signal=signal,
+            data_quality=passing_data_quality(),
+            backtest_result=passing_backtest(),
+            safety_policy=ExecutionSafetyPolicy(),
+            market_time=datetime(2026, 4, 13, 7, 0, 0),
+        )
+
+
+def test_ops_agent_marks_task_blocked_when_market_session_gate_fails() -> None:
+    board = build_execution_board()
+    service = OpsAgentService(board, ExecutionSafetyPolicy())
+    task = service.create_paper_execution_task("AAPL")
+    board.transition(task.task_id, TaskStatus.CLAIMED, "OpsAgent", "Claiming paper execution.")
+
+    run = service.run_paper_execution_task(
+        task_id=task.task_id,
+        actor="OpsAgent",
+        signal=Signal(
+            symbol="AAPL",
+            direction=SignalDirection.LONG,
+            confidence=0.6,
+            rationale="Positive momentum.",
+        ),
+        data_quality=passing_data_quality(),
+        backtest_result=passing_backtest(),
+        market_time=datetime(2026, 4, 13, 7, 0, 0),
+        quantity=3,
+    )
+
+    assert run.task.status == TaskStatus.BLOCKED
+    assert run.proposal is None
+    assert run.blocked_reason is not None

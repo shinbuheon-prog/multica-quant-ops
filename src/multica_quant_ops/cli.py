@@ -38,8 +38,18 @@ def build_default_workflow() -> DailyWorkflowService:
     )
 
 
-def build_sample_request(symbol: str, quantity: int, stale_data: bool, weak_backtest: bool) -> DailyWorkflowRequest:
-    now = datetime(2026, 4, 13, 9, 35, 0)
+def build_sample_request(
+    symbol: str,
+    quantity: int,
+    stale_data: bool,
+    weak_backtest: bool,
+    outside_session: bool,
+) -> DailyWorkflowRequest:
+    now = (
+        datetime(2026, 4, 13, 7, 0, 0)
+        if outside_session
+        else datetime(2026, 4, 13, 9, 35, 0)
+    )
     snapshot_age = timedelta(minutes=20) if stale_data else timedelta(minutes=1)
     backtest_prices = (
         [100.0, 99.5, 99.0, 98.5, 98.0]
@@ -97,13 +107,21 @@ def build_request_from_dict(payload: dict) -> DailyWorkflowRequest:
     )
 
 
-def load_request(input_path: str | None, symbol: str, quantity: int, stale_data: bool, weak_backtest: bool) -> DailyWorkflowRequest:
+def load_request(
+    input_path: str | None,
+    symbol: str,
+    quantity: int,
+    stale_data: bool,
+    weak_backtest: bool,
+    outside_session: bool,
+) -> DailyWorkflowRequest:
     if input_path is None:
         return build_sample_request(
             symbol=symbol,
             quantity=quantity,
             stale_data=stale_data,
             weak_backtest=weak_backtest,
+            outside_session=outside_session,
         )
 
     payload = json.loads(Path(input_path).read_text(encoding="utf-8"))
@@ -174,6 +192,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Use a weak backtest series to trigger a backtest block.",
     )
+    parser.add_argument(
+        "--outside-session",
+        action="store_true",
+        help="Use a timestamp outside the regular US market session to block paper execution.",
+    )
     return parser.parse_args()
 
 
@@ -186,6 +209,7 @@ def main() -> int:
         quantity=args.quantity,
         stale_data=args.stale_data,
         weak_backtest=args.weak_backtest,
+        outside_session=args.outside_session,
     )
     result = workflow.run(request)
     report = (

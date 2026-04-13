@@ -30,6 +30,19 @@ def test_cli_stale_data_report() -> None:
     assert "Paper order: not created" in result.stdout
 
 
+def test_cli_outside_session_report() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "multica_quant_ops.cli", "--outside-session"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={"PYTHONPATH": "src"},
+    )
+
+    assert "Blocked stage: paper_execution" in result.stdout
+    assert "Paper execution reason: Paper execution is blocked outside the regular US market session." in result.stdout
+
+
 def test_cli_can_load_input_file_and_write_output() -> None:
     runtime_dir = Path("test-artifacts")
     runtime_dir.mkdir(exist_ok=True)
@@ -100,6 +113,23 @@ def test_cli_can_emit_json_report() -> None:
     assert len(payload["tasks"]) == 4
     assert payload["tasks"][-1]["kind"] == "signal"
     assert payload["audit_log"][0]["to_status"] == "claimed"
+
+
+def test_cli_json_report_includes_paper_execution_block_reason() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "multica_quant_ops.cli", "--json", "--outside-session"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={"PYTHONPATH": "src"},
+    )
+
+    payload = json.loads(result.stdout)
+
+    assert payload["result"]["blocked_stage"] == "paper_execution"
+    assert payload["result"]["paper_execution_reason"] == (
+        "Paper execution is blocked outside the regular US market session."
+    )
 
 
 def test_cli_can_write_json_report_to_output_file() -> None:

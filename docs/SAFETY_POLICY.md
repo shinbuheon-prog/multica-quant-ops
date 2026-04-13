@@ -14,6 +14,7 @@ This project touches a high-risk financial domain. Safety defaults are part of t
 
 - kill switch for all execution jobs
 - paper-trading mode default
+- regular US market-session gate for paper execution
 - audit log for every task state transition
 - approval step before any execution-mode change
 

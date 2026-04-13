@@ -70,6 +70,13 @@ $env:PYTHONPATH="src"
 python -m multica_quant_ops.cli --weak-backtest
 ```
 
+Trigger a blocked paper-execution run outside the regular US market session:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m multica_quant_ops.cli --outside-session
+```
+
 Run from a JSON request file:
 
 ```powershell
@@ -90,3 +97,8 @@ Emit a machine-readable JSON report with task and audit details:
 $env:PYTHONPATH="src"
 python -m multica_quant_ops.cli --json
 ```
+
+Time assumptions:
+
+- sample-mode timestamps are interpreted in `America/New_York`
+- paper execution is blocked outside regular US market hours (`09:30` to `16:00`, weekdays)
