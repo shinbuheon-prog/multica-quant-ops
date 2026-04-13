@@ -59,6 +59,8 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1 `
 5. `Config` 시트의 `B2` 셀에 `dashboard-export.json`의 Google Drive 파일 ID를 입력합니다.
 6. 상단 메뉴 `Quant Ops -> 대시보드 새로고침`을 실행합니다.
 
+초기 렌더링 후 색상이나 표가 흐트러졌다면 `Quant Ops -> 서식 다시 적용`을 실행하면 됩니다.
+
 ## 대시보드에 보이는 내용
 
 `Overview`
@@ -67,6 +69,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1 `
 - 준비 완료 종목 수
 - 차단 종목 수
 - Alpha Vantage 사용량과 남은 호출 수
+- 준비 상태 요약 차트
 
 `Dashboard`
 - 티커
@@ -78,6 +81,10 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1 `
 - 운영 헤드라인
 - 남은 API 호출 수
 - 한국어 operator 리포트 요약
+- 상태별 행 강조 색상
+  - 준비 가능: 연녹색
+  - 차단 발생: 연적색
+  - 남은 호출 5 이하: 연노랑
 
 `Batch Runs`
 - batch 이름
@@ -86,6 +93,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1 `
 - 준비 완료 수
 - 차단 수
 - 운영 요약
+- 차단 수 기준 행 강조 색상
 
 `Incidents`
 - 최근 incident summary 파일의 헤드라인

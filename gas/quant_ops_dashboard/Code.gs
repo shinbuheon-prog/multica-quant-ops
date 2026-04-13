@@ -2,6 +2,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Quant Ops')
     .addItem('대시보드 새로고침', 'refreshDashboardFromDrive')
+    .addItem('서식 다시 적용', 'applyDashboardFormatting')
     .addToUi();
 }
 
@@ -22,8 +23,17 @@ function refreshDashboardFromDrive() {
   writeDashboardSheet_(spreadsheet, payload.dashboard || []);
   writeBatchRunsSheet_(spreadsheet, payload.batch_runs || []);
   writeIncidentsSheet_(spreadsheet, payload.incidents || []);
+  applyDashboardFormatting();
 
   configSheet.getRange('B3').setValue(new Date());
+}
+
+function applyDashboardFormatting() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  formatOverviewSheet_(ensureSheet_(spreadsheet, 'Overview'));
+  formatDashboardSheet_(ensureSheet_(spreadsheet, 'Dashboard'));
+  formatBatchRunsSheet_(ensureSheet_(spreadsheet, 'Batch Runs'));
+  formatIncidentsSheet_(ensureSheet_(spreadsheet, 'Incidents'));
 }
 
 function ensureConfigLayout_(sheet) {
@@ -53,6 +63,7 @@ function writeOverviewSheet_(spreadsheet, payload) {
     ['최신 일일 리포트 경로', overview.latest_daily_report_path || ''],
   ];
   writeTable_(sheet, rows);
+  writeOverviewChart_(sheet);
 }
 
 function writeDashboardSheet_(spreadsheet, items) {
@@ -149,7 +160,131 @@ function ensureSheet_(spreadsheet, name) {
 }
 
 function writeTable_(sheet, rows) {
-  sheet.clearContents();
+  sheet.clear();
   sheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
   sheet.autoResizeColumns(1, rows[0].length);
+}
+
+function formatOverviewSheet_(sheet) {
+  if (sheet.getLastRow() < 2) {
+    return;
+  }
+
+  const headerRange = sheet.getRange(1, 1, 1, 2);
+  headerRange
+    .setFontWeight('bold')
+    .setBackground('#1f2937')
+    .setFontColor('#ffffff');
+
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+}
+
+function formatDashboardSheet_(sheet) {
+  if (sheet.getLastRow() < 2) {
+    return;
+  }
+
+  const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+  headerRange
+    .setFontWeight('bold')
+    .setBackground('#0f766e')
+    .setFontColor('#ffffff');
+
+  sheet.setFrozenRows(1);
+  sheet.setFrozenColumns(1);
+  sheet.getRange(2, 4, sheet.getLastRow() - 1, 1).setNumberFormat('0.00');
+  sheet.getRange(2, 5, sheet.getLastRow() - 1, 1).setNumberFormat('0.00%');
+  sheet.getRange(2, 7, sheet.getLastRow() - 1, 1).setNumberFormat('0.0000');
+  sheet.getRange(2, 11, sheet.getLastRow() - 1, 1).setNumberFormat('0');
+  sheet.setColumnWidths(10, 4, 220);
+
+  const dataRange = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn());
+  const values = dataRange.getValues();
+  const backgrounds = values.map(function(row) {
+    const readyValue = row[7];
+    const blockedStage = row[8];
+    const remainingCalls = Number(row[10] || 0);
+    let color = '#ffffff';
+
+    if (readyValue === '가능') {
+      color = '#dcfce7';
+    } else if (blockedStage && blockedStage !== '없음') {
+      color = '#fee2e2';
+    } else if (remainingCalls > 0 && remainingCalls <= 5) {
+      color = '#fef3c7';
+    }
+
+    return new Array(sheet.getLastColumn()).fill(color);
+  });
+  dataRange.setBackgrounds(backgrounds);
+}
+
+function formatBatchRunsSheet_(sheet) {
+  if (sheet.getLastRow() < 2) {
+    return;
+  }
+
+  const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+  headerRange
+    .setFontWeight('bold')
+    .setBackground('#1d4ed8')
+    .setFontColor('#ffffff');
+
+  sheet.setFrozenRows(1);
+  sheet.setColumnWidths(6, 2, 260);
+
+  const dataRange = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn());
+  const values = dataRange.getValues();
+  const backgrounds = values.map(function(row) {
+    const readyCount = Number(row[3] || 0);
+    const blockedCount = Number(row[4] || 0);
+    let color = '#ffffff';
+
+    if (readyCount > 0 && blockedCount === 0) {
+      color = '#dcfce7';
+    } else if (blockedCount > 0) {
+      color = '#fee2e2';
+    }
+
+    return new Array(sheet.getLastColumn()).fill(color);
+  });
+  dataRange.setBackgrounds(backgrounds);
+}
+
+function formatIncidentsSheet_(sheet) {
+  if (sheet.getLastRow() < 2) {
+    return;
+  }
+
+  const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+  headerRange
+    .setFontWeight('bold')
+    .setBackground('#7c2d12')
+    .setFontColor('#ffffff');
+
+  sheet.setFrozenRows(1);
+  sheet.setColumnWidths(2, 2, 300);
+}
+
+function writeOverviewChart_(sheet) {
+  sheet.getCharts().forEach(function(chart) {
+    sheet.removeChart(chart);
+  });
+
+  if (sheet.getLastRow() < 5) {
+    return;
+  }
+
+  const chartRange = sheet.getRange('A3:B5');
+  const chart = sheet.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(chartRange)
+    .setPosition(2, 4, 0, 0)
+    .setOption('title', '준비 상태 요약')
+    .setOption('legend', { position: 'none' })
+    .setOption('colors', ['#0f766e'])
+    .build();
+
+  sheet.insertChart(chart);
 }
