@@ -98,6 +98,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\prepare-multi-ticker.ps1 -Tickers
 - [Changelog](CHANGELOG.md)
 - [Release v0.1.0](docs/RELEASE_v0.1.0.md)
 - [Alpha Vantage Free Mode](docs/ALPHAVANTAGE_FREE_MODE.md)
+- [Codex Team + Dashboard Design](docs/CODEX_TEAM_DASHBOARD_DESIGN.md)
 - [GAS Dashboard Guide](docs/GAS_DASHBOARD.md)
 - [Solution Overview](docs/SOLUTION_OVERVIEW.md)
 - [Use Cases](docs/USE_CASES.md)
