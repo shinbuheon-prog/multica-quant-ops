@@ -7,10 +7,12 @@
 - `requests/daily-paper-request.json`
 - `run-daily.ps1`
 - `run-incident-summary.ps1`
+- `bootstrap-session.ps1`
 - `prepare-same-day-request.ps1`
 - `prepare-multi-ticker.ps1`
 - `export-dashboard.ps1`
 - `notify-telegram.ps1`
+- `show-status.ps1`
 - `show-alpha-vantage-usage.ps1`
 - `start-http-api.ps1`
 - `start-scheduler.ps1`
@@ -26,14 +28,15 @@
 ## 추천 시작 순서
 
 1. Activate the Python environment.
-2. Review `requests/daily-paper-request.json`.
-3. For same-day preparation, run `prepare-same-day-request.ps1 -Ticker AAPL`.
-4. 여러 종목을 함께 준비하려면 `prepare-multi-ticker.ps1 -Tickers AAPL,MSFT,TSLA`를 실행합니다.
-5. `run-daily.ps1`로 수동 워크플로우를 실행합니다.
-6. triage가 필요하면 `run-incident-summary.ps1`를 실행합니다.
-7. 반복 실행이 필요하면 `start-scheduler.ps1`를 실행합니다.
-8. 스프레드시트 현황판을 갱신하려면 `export-dashboard.ps1`를 실행합니다.
-9. 텔레그램 알림을 보내려면 `notify-telegram.ps1`를 실행합니다.
+2. 새 탭이나 재부팅 후에는 `bootstrap-session.ps1`와 `show-status.ps1`를 먼저 실행합니다.
+3. Review `requests/daily-paper-request.json`.
+4. For same-day preparation, run `prepare-same-day-request.ps1 -Ticker AAPL`.
+5. 여러 종목을 함께 준비하려면 `prepare-multi-ticker.ps1 -Tickers AAPL,MSFT,TSLA`를 실행합니다.
+6. `run-daily.ps1`로 수동 워크플로우를 실행합니다.
+7. triage가 필요하면 `run-incident-summary.ps1`를 실행합니다.
+8. 반복 실행이 필요하면 `start-scheduler.ps1`를 실행합니다.
+9. 스프레드시트 현황판을 갱신하려면 `export-dashboard.ps1`를 실행합니다.
+10. 텔레그램 알림을 보내려면 `notify-telegram.ps1`를 실행합니다.
 
 ## 참고
 

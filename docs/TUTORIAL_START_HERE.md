@@ -25,6 +25,13 @@ python -m pytest -q
 
 정상이라면 테스트가 통과합니다.
 
+새 PowerShell 탭이나 재부팅 후에는 아래 재진입 스크립트를 먼저 써도 됩니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\bootstrap-session.ps1
+powershell -ExecutionPolicy Bypass -File .\ops\show-status.ps1
+```
+
 ## 2. Alpha Vantage 키 설정
 
 무료 모드 기준으로 먼저 시작합니다.

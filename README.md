@@ -99,6 +99,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\prepare-multi-ticker.ps1 -Tickers
 - [Release v0.1.0](docs/RELEASE_v0.1.0.md)
 - [Alpha Vantage Free Mode](docs/ALPHAVANTAGE_FREE_MODE.md)
 - [Start Here Tutorial](docs/TUTORIAL_START_HERE.md)
+- [Restart Flow Guide](docs/RESTART_FLOW.md)
 - [Operations Checklist](docs/OPERATIONS_CHECKLIST.md)
 - [Daily Scenario Example](docs/DAILY_SCENARIO_EXAMPLE.md)
 - [FAQ](docs/FAQ.md)
