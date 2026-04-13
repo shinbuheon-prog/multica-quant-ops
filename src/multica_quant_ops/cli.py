@@ -1,6 +1,6 @@
 import argparse
 import json
-from dataclasses import asdict, is_dataclass
+from dataclasses import fields, is_dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -112,7 +112,10 @@ def load_request(input_path: str | None, symbol: str, quantity: int, stale_data:
 
 def to_jsonable(value: Any) -> Any:
     if is_dataclass(value):
-        return {key: to_jsonable(item) for key, item in asdict(value).items()}
+        return {
+            field.name: to_jsonable(getattr(value, field.name))
+            for field in fields(value)
+        }
     if isinstance(value, dict):
         return {key: to_jsonable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
