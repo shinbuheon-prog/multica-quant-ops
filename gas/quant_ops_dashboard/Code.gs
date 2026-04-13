@@ -46,6 +46,7 @@ function ensureConfigLayout_(sheet) {
     ['dashboard_export_file_id', ''],
     ['last_refresh_at', ''],
     ['watchlist_tickers', ''],
+    ['dashboard_status_filter', 'all'],
     ['dashboard_max_rows', '20'],
     ['batch_runs_max_rows', '10'],
     ['incidents_max_rows', '10'],
@@ -85,6 +86,7 @@ function readConfig_(sheet) {
   return {
     dashboardExportFileId: String(config.dashboard_export_file_id || '').trim(),
     watchlistTickers: parseTickerList_(config.watchlist_tickers),
+    dashboardStatusFilter: parseStatusFilter_(config.dashboard_status_filter),
     dashboardMaxRows: parsePositiveInt_(config.dashboard_max_rows, 20),
     batchRunsMaxRows: parsePositiveInt_(config.batch_runs_max_rows, 10),
     incidentsMaxRows: parsePositiveInt_(config.incidents_max_rows, 10),
@@ -103,6 +105,14 @@ function parsePositiveInt_(value, defaultValue) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : defaultValue;
 }
 
+function parseStatusFilter_(value) {
+  const normalized = String(value || 'all').trim().toLowerCase();
+  if (['all', 'ready_only', 'blocked_only'].indexOf(normalized) !== -1) {
+    return normalized;
+  }
+  return 'all';
+}
+
 function limitItems_(items, maxRows) {
   return items.slice(0, maxRows);
 }
@@ -112,6 +122,15 @@ function filterDashboardItems_(items, config) {
   if (config.watchlistTickers.length > 0) {
     filtered = filtered.filter(function(item) {
       return config.watchlistTickers.indexOf(String(item.symbol || '').toUpperCase()) !== -1;
+    });
+  }
+  if (config.dashboardStatusFilter === 'ready_only') {
+    filtered = filtered.filter(function(item) {
+      return Boolean(item.paper_execution_ready);
+    });
+  } else if (config.dashboardStatusFilter === 'blocked_only') {
+    filtered = filtered.filter(function(item) {
+      return Boolean(item.blocked_stage);
     });
   }
   return limitItems_(filtered, config.dashboardMaxRows);
@@ -127,6 +146,7 @@ function writeOverviewSheet_(spreadsheet, payload, dashboardItems) {
     ['준비 완료 종목 수', countReadyTickers_(dashboardItems)],
     ['차단 종목 수', countBlockedTickers_(dashboardItems)],
     ['전체 종목 수', overview.total_tickers || 0],
+    ['현재 상태 필터', getCurrentStatusFilterLabel_(spreadsheet)],
     ['Alpha Vantage 사용일', overview.alpha_vantage_usage_date || ''],
     ['Alpha Vantage 사용량', overview.alpha_vantage_used_calls || ''],
     ['Alpha Vantage 일일 한도', overview.alpha_vantage_daily_limit || ''],
@@ -137,6 +157,18 @@ function writeOverviewSheet_(spreadsheet, payload, dashboardItems) {
   ];
   writeTable_(sheet, rows);
   writeOverviewChart_(sheet);
+}
+
+function getCurrentStatusFilterLabel_(spreadsheet) {
+  const configSheet = ensureSheet_(spreadsheet, 'Config');
+  const config = readConfig_(configSheet);
+  if (config.dashboardStatusFilter === 'ready_only') {
+    return '준비 가능만';
+  }
+  if (config.dashboardStatusFilter === 'blocked_only') {
+    return '차단 종목만';
+  }
+  return '전체';
 }
 
 function countReadyTickers_(items) {
@@ -224,11 +256,12 @@ function writeBatchRunsSheet_(spreadsheet, items) {
 function writeIncidentsSheet_(spreadsheet, items) {
   const sheet = ensureSheet_(spreadsheet, 'Incidents');
   const rows = [
-    ['생성 시각', '헤드라인', '요약', '경로'],
+    ['우선순위', '생성 시각', '헤드라인', '요약', '경로'],
   ];
 
   items.forEach(function(item) {
     rows.push([
+      classifyIncidentPriority_(item),
       item.generated_at || '',
       item.headline || '',
       item.details_excerpt || '',
@@ -237,6 +270,23 @@ function writeIncidentsSheet_(spreadsheet, items) {
   });
 
   writeTable_(sheet, rows);
+}
+
+function classifyIncidentPriority_(item) {
+  const headline = String(item.headline || '').toLowerCase();
+  if (headline.indexOf('paper_execution') !== -1) {
+    return '높음';
+  }
+  if (headline.indexOf('data_quality') !== -1) {
+    return '높음';
+  }
+  if (headline.indexOf('backtest') !== -1) {
+    return '중간';
+  }
+  if (headline.indexOf('no incident') !== -1) {
+    return '정보';
+  }
+  return '확인 필요';
 }
 
 function ensureSheet_(spreadsheet, name) {
@@ -349,7 +399,25 @@ function formatIncidentsSheet_(sheet) {
     .setFontColor('#ffffff');
 
   sheet.setFrozenRows(1);
-  sheet.setColumnWidths(2, 2, 300);
+  sheet.setColumnWidths(3, 2, 300);
+
+  const dataRange = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn());
+  const values = dataRange.getValues();
+  const backgrounds = values.map(function(row) {
+    const priority = row[0];
+    let color = '#ffffff';
+
+    if (priority === '높음') {
+      color = '#fee2e2';
+    } else if (priority === '중간') {
+      color = '#fef3c7';
+    } else if (priority === '정보') {
+      color = '#e0f2fe';
+    }
+
+    return new Array(sheet.getLastColumn()).fill(color);
+  });
+  dataRange.setBackgrounds(backgrounds);
 }
 
 function writeOverviewChart_(sheet) {
