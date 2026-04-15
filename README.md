@@ -106,6 +106,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\prepare-multi-ticker.ps1 -Tickers
 - [Codex Team + Dashboard Design](docs/CODEX_TEAM_DASHBOARD_DESIGN.md)
 - [GAS Dashboard Guide](docs/GAS_DASHBOARD.md)
 - [Telegram Integration Guide](docs/TELEGRAM_INTEGRATION.md)
+- [Discord Integration Guide](docs/DISCORD_INTEGRATION.md)
 - [Solution Overview](docs/SOLUTION_OVERVIEW.md)
 - [Use Cases](docs/USE_CASES.md)
 - [Workflow Guide](docs/WORKFLOWS.md)

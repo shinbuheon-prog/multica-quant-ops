@@ -26,6 +26,7 @@ Write-Host "Virtualenv: $(if (Test-Path $venvActivate) { '.venv activated' } els
 Write-Host "ALPHAVANTAGE_API_KEY: $(if ($env:ALPHAVANTAGE_API_KEY) { 'set' } else { 'not set' })"
 Write-Host "TELEGRAM_BOT_TOKEN: $(if ($env:TELEGRAM_BOT_TOKEN) { 'set' } else { 'not set' })"
 Write-Host "TELEGRAM_CHAT_ID: $(if ($env:TELEGRAM_CHAT_ID) { 'set' } else { 'not set' })"
+Write-Host "DISCORD_WEBHOOK_URL: $(if ($env:DISCORD_WEBHOOK_URL) { 'set' } else { 'not set' })"
 Write-Host ""
 
 if (-not $SkipTests) {
