@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import urllib.parse
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,10 @@ class TelegramOptions:
     dry_run: bool = False
     alert_only: bool = False
     low_calls_threshold: int = 5
+
+
+class TelegramDeliveryError(RuntimeError):
+    """Raised when Telegram delivery fails with an operator-facing message."""
 
 
 def load_dashboard_export(path: Path) -> dict[str, Any]:
@@ -102,6 +107,33 @@ def build_telegram_message(payload: dict[str, Any], low_calls_threshold: int = 5
     return "\n".join(lines)
 
 
+def parse_telegram_error_body(body: str) -> str | None:
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    description = payload.get("description")
+    if isinstance(description, str) and description:
+        return description
+    return None
+
+
+def build_network_error_message(error: urllib.error.URLError) -> str:
+    reason = error.reason
+    if isinstance(reason, OSError):
+        if reason.errno == 10061:
+            return (
+                "Telegram API connection was refused. Check outbound network access, "
+                "firewall, proxy, or security software for api.telegram.org."
+            )
+        if reason.errno == 11001:
+            return (
+                "Telegram API host could not be resolved. Check DNS or proxy settings "
+                "for api.telegram.org."
+            )
+    return f"Telegram delivery failed due to a network error: {reason}"
+
+
 def send_telegram_message(config: TelegramConfig, message: str) -> None:
     payload = urllib.parse.urlencode(
         {
@@ -111,11 +143,36 @@ def send_telegram_message(config: TelegramConfig, message: str) -> None:
     ).encode("utf-8")
     url = f"https://api.telegram.org/bot{config.bot_token}/sendMessage"
     request = urllib.request.Request(url, data=payload, method="POST")
-    with urllib.request.urlopen(request, timeout=20) as response:
-        body = response.read().decode("utf-8")
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            body = response.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        description = parse_telegram_error_body(body)
+        if error.code == 401:
+            raise TelegramDeliveryError(
+                "Telegram bot token was rejected. Check TELEGRAM_BOT_TOKEN."
+            ) from error
+        if error.code == 400:
+            detail = description or "Unknown Telegram API error."
+            raise TelegramDeliveryError(
+                f"Telegram rejected the request. Check TELEGRAM_CHAT_ID and payload. Detail: {detail}"
+            ) from error
+        detail = description or body or str(error)
+        raise TelegramDeliveryError(
+            f"Telegram API returned HTTP {error.code}. Detail: {detail}"
+        ) from error
+    except urllib.error.URLError as error:
+        raise TelegramDeliveryError(build_network_error_message(error)) from error
+    except TimeoutError as error:
+        raise TelegramDeliveryError(
+            "Telegram delivery timed out. Check network connectivity to api.telegram.org."
+        ) from error
+
     response_payload = json.loads(body)
     if not response_payload.get("ok"):
-        raise RuntimeError(f"Telegram send failed: {response_payload}")
+        description = response_payload.get("description") or response_payload
+        raise TelegramDeliveryError(f"Telegram send failed: {description}")
 
 
 def parse_args() -> argparse.Namespace:

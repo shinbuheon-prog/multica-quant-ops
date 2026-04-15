@@ -1,10 +1,18 @@
 import json
+import urllib.error
 from pathlib import Path
 
+import pytest
+
 from multica_quant_ops.telegram_notify import (
+    TelegramConfig,
+    TelegramDeliveryError,
     build_telegram_message,
+    build_network_error_message,
     has_alert_condition,
     main,
+    parse_telegram_error_body,
+    send_telegram_message,
 )
 
 
@@ -100,3 +108,50 @@ def test_main_skips_when_alert_only_and_no_condition(monkeypatch) -> None:
     )
 
     assert main() == 0
+
+
+def test_parse_telegram_error_body_returns_description() -> None:
+    body = json.dumps({"ok": False, "description": "Bad Request: chat not found"})
+    assert parse_telegram_error_body(body) == "Bad Request: chat not found"
+
+
+def test_build_network_error_message_for_connection_refused() -> None:
+    error = urllib.error.URLError(ConnectionRefusedError(10061, "connection refused"))
+    message = build_network_error_message(error)
+    assert "connection was refused" in message
+    assert "api.telegram.org" in message
+
+
+def test_send_telegram_message_reports_invalid_chat_id(monkeypatch) -> None:
+    class FakeHttpError(urllib.error.HTTPError):
+        def __init__(self) -> None:
+            super().__init__(
+                url="https://api.telegram.org/botTOKEN/sendMessage",
+                code=400,
+                msg="Bad Request",
+                hdrs=None,
+                fp=None,
+            )
+
+        def read(self) -> bytes:
+            return json.dumps(
+                {"ok": False, "description": "Bad Request: chat not found"}
+            ).encode("utf-8")
+
+    def fake_urlopen(*args: object, **kwargs: object) -> object:
+        raise FakeHttpError()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(TelegramDeliveryError, match="TELEGRAM_CHAT_ID"):
+        send_telegram_message(TelegramConfig(bot_token="token", chat_id="123"), "hello")
+
+
+def test_send_telegram_message_reports_connection_refused(monkeypatch) -> None:
+    def fake_urlopen(*args: object, **kwargs: object) -> object:
+        raise urllib.error.URLError(ConnectionRefusedError(10061, "connection refused"))
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(TelegramDeliveryError, match="connection was refused"):
+        send_telegram_message(TelegramConfig(bot_token="token", chat_id="123"), "hello")

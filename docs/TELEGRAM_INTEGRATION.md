@@ -87,6 +87,28 @@ powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1 -AlertOnly
 powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1 -AlertOnly -LowCallsThreshold 3
 ```
 
+## 전송 실패 시 점검
+
+텔레그램 전송이 실패하면 메시지 원인을 먼저 구분해서 보시면 됩니다.
+
+- `Telegram bot token was rejected`
+  - `TELEGRAM_BOT_TOKEN` 값이 잘못됐거나 재발급 후 예전 토큰을 쓰는 상태입니다.
+- `Check TELEGRAM_CHAT_ID`
+  - `TELEGRAM_CHAT_ID`가 잘못됐거나, 봇이 아직 해당 채팅방과 대화를 시작하지 않았습니다.
+- `connection was refused`
+  - 현재 PC 또는 네트워크에서 `api.telegram.org`로 나가는 HTTPS 연결이 막힌 상태입니다.
+  - 회사 보안 정책, 방화벽, 프록시, 보안 소프트웨어를 먼저 확인하는 쪽이 맞습니다.
+- `host could not be resolved`
+  - DNS 또는 프록시 설정 문제일 가능성이 큽니다.
+- `timed out`
+  - 텔레그램 API 응답이 제시간에 오지 않았습니다. 잠시 후 다시 시도하거나 네트워크 상태를 확인합니다.
+
+운영 중에는 먼저 메시지 형식이 정상인지 `-DryRun`으로 확인한 뒤, 실제 전송을 다시 시도하는 흐름이 가장 안전합니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\notify-telegram.ps1 -DryRun -AlertOnly
+```
+
 ## 추천 운영 방식
 
 ### 1. batch 실행 후 요약 전송
