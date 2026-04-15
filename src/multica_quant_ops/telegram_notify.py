@@ -227,7 +227,10 @@ def main() -> int:
     if not bot_token or not chat_id:
         raise SystemExit("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required.")
 
-    send_telegram_message(TelegramConfig(bot_token=bot_token, chat_id=chat_id), message)
+    try:
+        send_telegram_message(TelegramConfig(bot_token=bot_token, chat_id=chat_id), message)
+    except TelegramDeliveryError as error:
+        raise SystemExit(str(error)) from error
     print("Telegram notification sent.")
     return 0
 

@@ -15,6 +15,18 @@ if (-not $DashboardExportPath) {
 Push-Location $root
 try {
     $env:PYTHONPATH = Join-Path $root "src"
+    if (-not $env:TELEGRAM_BOT_TOKEN) {
+        $env:TELEGRAM_BOT_TOKEN = [System.Environment]::GetEnvironmentVariable(
+            "TELEGRAM_BOT_TOKEN",
+            "User"
+        )
+    }
+    if (-not $env:TELEGRAM_CHAT_ID) {
+        $env:TELEGRAM_CHAT_ID = [System.Environment]::GetEnvironmentVariable(
+            "TELEGRAM_CHAT_ID",
+            "User"
+        )
+    }
     $command = @(
         "-m", "multica_quant_ops.telegram_notify",
         "--dashboard-export", $DashboardExportPath,
@@ -28,7 +40,7 @@ try {
     }
     python @command
     if ($LASTEXITCODE -ne 0) {
-        throw "telegram notification failed with exit code $LASTEXITCODE"
+        exit $LASTEXITCODE
     }
 }
 finally {

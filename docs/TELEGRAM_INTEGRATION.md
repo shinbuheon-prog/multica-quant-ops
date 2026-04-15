@@ -55,6 +55,8 @@ $env:TELEGRAM_BOT_TOKEN="your-bot-token"
 $env:TELEGRAM_CHAT_ID="your-chat-id"
 ```
 
+한 번 Windows `User` 환경변수로 저장해 두면, `ops/notify-telegram.ps1`는 새 PowerShell 탭에서도 그 값을 자동으로 읽습니다.
+
 ## 실행 순서
 
 먼저 대시보드 export를 만듭니다.

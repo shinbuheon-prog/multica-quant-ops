@@ -110,6 +110,24 @@ def test_main_skips_when_alert_only_and_no_condition(monkeypatch) -> None:
     assert main() == 0
 
 
+def test_main_exits_with_operator_friendly_message_on_delivery_error(
+    monkeypatch,
+) -> None:
+    export_path = Path("test-artifacts") / "telegram-dashboard-export-delivery-error.json"
+    export_path.write_text(json.dumps(build_sample_payload(), ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["telegram_notify", "--dashboard-export", str(export_path)])
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "123")
+
+    def fake_send(*args: object, **kwargs: object) -> None:
+        raise TelegramDeliveryError("Telegram API connection was refused.")
+
+    monkeypatch.setattr("multica_quant_ops.telegram_notify.send_telegram_message", fake_send)
+
+    with pytest.raises(SystemExit, match="Telegram API connection was refused."):
+        main()
+
+
 def test_parse_telegram_error_body_returns_description() -> None:
     body = json.dumps({"ok": False, "description": "Bad Request: chat not found"})
     assert parse_telegram_error_body(body) == "Bad Request: chat not found"
