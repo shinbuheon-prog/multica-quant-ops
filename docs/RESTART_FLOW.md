@@ -53,6 +53,8 @@ powershell -ExecutionPolicy Bypass -File .\ops\show-status.ps1
 - 최신 dashboard export 일부
 - 환경변수 설정 여부
 
+여기에는 `ALPHAVANTAGE_API_KEY`, `TELEGRAM_*`, `DISCORD_WEBHOOK_URL` 설정 여부도 포함됩니다.
+
 ## 언제 기존 PowerShell 탭을 유지해야 하나
 
 다음 상황이 아니라면 굳이 유지할 필요는 없습니다.

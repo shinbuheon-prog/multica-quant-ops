@@ -8,6 +8,7 @@
 
 - Python 환경이 활성화되어 있는지 확인
 - `ALPHAVANTAGE_API_KEY`가 설정되어 있는지 확인
+- Discord를 쓸 경우 `DISCORD_WEBHOOK_URL`이 설정되어 있는지 확인
 - 오늘 watchlist 티커가 맞는지 확인
 - Alpha Vantage 남은 호출 수를 확인
 - Google Sheets `Config` 시트 값이 맞는지 확인
@@ -75,6 +76,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1
 - Google Drive에 JSON 반영 확인
 - Google Sheets에서 `Quant Ops -> 대시보드 새로고침`
 - `Overview`, `Dashboard`, `Incidents` 확인
+- 필요하면 `notify-discord.ps1 -AlertOnly`로 운영 채널 알림 전송
 
 ## Google Sheets 확인 포인트
 
@@ -113,6 +115,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1
 ## 하루 마감 전
 
 - 오늘 batch 결과를 대시보드에 반영했는지 확인
+- Discord 알림 채널을 쓴 경우 오늘 blocked 상태가 필요한 사람에게 공유됐는지 확인
 - incident가 있었으면 원인과 다음 액션을 메모
 - 내일 watchlist 후보를 정리
 - 필요하면 premium 전환이 필요한지 usage를 검토

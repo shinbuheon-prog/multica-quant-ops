@@ -118,7 +118,27 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1
 5. `Config` 시트 `B2`에 Drive 파일 ID를 넣습니다.
 6. 메뉴 `Quant Ops -> 대시보드 새로고침`을 실행합니다.
 
-## 8. Config 시트 기본 추천값
+## 8. Discord 알림 채널 연결
+
+Discord를 운영 알림 채널로 쓰려면 Webhook URL을 한 번 저장해 두는 편이 가장 편합니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\set-discord-webhook.ps1 -WebhookUrl "https://discord.com/api/webhooks/..."
+```
+
+그 다음 미리보기:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\notify-discord.ps1 -DryRun -AlertOnly
+```
+
+실제 전송:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\notify-discord.ps1 -AlertOnly
+```
+
+## 9. Config 시트 기본 추천값
 
 처음에는 다음처럼 두는 것이 좋습니다.
 
@@ -132,7 +152,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1
 
 - `dashboard_status_filter` = `blocked_only`
 
-## 9. 무엇을 보면 되는가
+## 10. 무엇을 보면 되는가
 
 처음 운영자는 다음 순서로 보면 됩니다.
 
@@ -149,7 +169,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1
 4. `Batch Runs`
    - 최근 batch가 전체적으로 어땠는지
 
-## 10. 첫 운영에서 자주 보는 상황
+## 11. 첫 운영에서 자주 보는 상황
 
 ### `backtest`
 
@@ -178,16 +198,18 @@ powershell -ExecutionPolicy Bypass -File .\ops\export-dashboard.ps1
 운영자 행동:
 - 세션 시간부터 확인
 
-## 11. 매일 반복할 최소 루틴
+## 12. 매일 반복할 최소 루틴
 
 1. same-day 또는 batch 실행
 2. operator 리포트 확인
 3. `export-dashboard.ps1` 실행
-4. Google Sheets 새로고침
-5. blocked 종목만 점검
+4. 필요하면 `notify-discord.ps1 -AlertOnly` 실행
+5. Google Sheets 새로고침
+6. blocked 종목만 점검
 
-## 12. 다음에 읽을 문서
+## 13. 다음에 읽을 문서
 
 - [운영 체크리스트](OPERATIONS_CHECKLIST.md)
 - [Codex Team + Dashboard Design](CODEX_TEAM_DASHBOARD_DESIGN.md)
 - [GAS Dashboard Guide](GAS_DASHBOARD.md)
+- [Discord Integration Guide](DISCORD_INTEGRATION.md)
