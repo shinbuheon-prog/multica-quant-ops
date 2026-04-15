@@ -10,6 +10,7 @@ from multica_quant_ops.discord_notify import (
     build_discord_message,
     build_discord_network_error_message,
     main,
+    normalize_discord_webhook_url,
     parse_discord_error_body,
     send_discord_message,
 )
@@ -66,6 +67,11 @@ def test_build_discord_message_contains_key_sections() -> None:
 def test_parse_discord_error_body_returns_message() -> None:
     body = json.dumps({"message": "Unknown Webhook"})
     assert parse_discord_error_body(body) == "Unknown Webhook"
+
+
+def test_normalize_discord_webhook_url_rewrites_legacy_domain() -> None:
+    url = "https://discordapp.com/api/webhooks/1/token"
+    assert normalize_discord_webhook_url(url) == "https://discord.com/api/webhooks/1/token"
 
 
 def test_build_discord_network_error_message_for_connection_refused() -> None:

@@ -5,6 +5,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$WebhookUrl = $WebhookUrl.Trim()
+if ($WebhookUrl -like "https://discordapp.com/*") {
+    $WebhookUrl = $WebhookUrl -replace "^https://discordapp\.com", "https://discord.com"
+}
+
 [System.Environment]::SetEnvironmentVariable(
     "DISCORD_WEBHOOK_URL",
     $WebhookUrl,

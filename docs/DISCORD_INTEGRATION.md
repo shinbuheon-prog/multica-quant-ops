@@ -28,6 +28,7 @@ $env:DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
 ```
 
 한 번 Windows `User` 환경변수로 저장해 두면, `ops/notify-discord.ps1`는 새 PowerShell 탭에서도 그 값을 자동으로 읽습니다.
+`discordapp.com` 형식 URL을 넣어도 스크립트가 `discord.com` 형식으로 자동 정규화합니다.
 
 ## Discord Webhook 만들기
 

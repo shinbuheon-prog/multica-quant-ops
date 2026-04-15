@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from urllib.parse import urlsplit, urlunsplit
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -28,6 +29,13 @@ class DiscordOptions:
 
 class DiscordDeliveryError(RuntimeError):
     """Raised when Discord delivery fails with an operator-facing message."""
+
+
+def normalize_discord_webhook_url(webhook_url: str) -> str:
+    parts = urlsplit(webhook_url.strip())
+    if parts.netloc == "discordapp.com":
+        return urlunsplit((parts.scheme, "discord.com", parts.path, parts.query, parts.fragment))
+    return webhook_url.strip()
 
 
 def build_discord_message(payload: dict[str, Any], low_calls_threshold: int = 5) -> str:
@@ -111,9 +119,10 @@ def build_discord_network_error_message(error: urllib.error.URLError) -> str:
 
 
 def send_discord_message(config: DiscordConfig, message: str) -> None:
+    webhook_url = normalize_discord_webhook_url(config.webhook_url)
     payload = json.dumps({"content": message}, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
-        config.webhook_url,
+        webhook_url,
         data=payload,
         method="POST",
         headers={"Content-Type": "application/json"},
