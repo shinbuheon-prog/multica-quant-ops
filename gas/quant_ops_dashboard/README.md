@@ -1,3 +1,8 @@
+> **Deprecated (2026-09-03, docs/FUNDAMENTALS_INTEGRATION.md 9-2절/Phase 10).** 사용자는
+> 이 대시보드 대신 이미 쓰고 있던 Cowork CSV 기반 시트("지표 시트"/"통합대시보드")를
+> 계속 씁니다. 이 폴더는 저장소 히스토리로만 남기고 운영에는 쓰지 않습니다. 새 설정을
+> 여기에 추가하지 마세요.
+
 # GAS Dashboard
 
 이 폴더의 `Code.gs`는 `dashboard-export.json` 파일을 읽어 Google Sheets 대시보드를 갱신하는 Apps Script 예시입니다.

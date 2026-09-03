@@ -248,7 +248,7 @@ Phase 5(저장소 되살리기)에 이 워크플로 구축을 포함시켜, **�
 | **7** | `data/quality.py` 확장 — 펀더멘털 크기 이상탐지 재작성(GOOGL 케이스를 회귀 테스트로 등록) |
 | **8** | ✅ `fundamentals/filing_alert.py`(`filing_alert_latest.json` 타입 로더 — Phase 6과 같은 얇은 어댑터 원칙, 재채점 자동해제 로직은 재작성하지 않고 s9d_filing_alert.py의 결과를 그대로 신뢰) + `fundamentals/notify.py`(기존 `discord_notify.py`/`telegram_notify.py`의 전송 함수 재사용, 신호 없으면 발송 자체를 건너뛰는 노이즈 최소화) + `.github/workflows/notify-filing-alerts.yml`(해당 JSON이 저장소에 커밋될 때 자동 발송). **남은 과제**: `filing_alert_latest.json`이 실제로 이 저장소에 어떻게 들어오는지는 아직 미정 — 9-4절 참고 |
 | **9** | ✅ **Scout는 코드화하지 않음**(3절 정의 그대로 LLM 리서치 세션 — 4절의 결정론/LLM 경계 원칙상 이 저장소에 재작성할 대상이 아님). **Doctor는 코드화함**: `fundamentals/doctor.py`(정합성+신선도+공시로그 검사를 묶은 `verify_pipeline.py` 스타일 진단, 0 NG 목표). **편입 승인**은 `.github/ISSUE_TEMPLATE/ticker_candidate.md`로 명시(발굴은 자동, 편입 결정은 사람 체크박스) |
-| **10** | 대시보드export를 `dashboard_export.py`와 통합, 기존 GAS 대시보드는 유지하며 저장소 산출물을 소스로 전환 |
+| **10** | ✅ (9-2절 결정 반영) `dashboard_export.py`/`gas/quant_ops_dashboard/`/`GAS_DASHBOARD.md`/`CODEX_TEAM_DASHBOARD_DESIGN.md`에 폐기 표시(코드는 남기되 운영 미사용). ~~저장소 산출물을 소스로 전환~~ → **`gas/cowork_sheet_bridge/`에 참고 코드로 구현**: Cowork 시트가 `ops/prices/daily_prices.csv`(Phase 5)를 실시간 조회 실패 시 2순위 소스로 읽는 `UrlFetchApp` 함수. **사람이 직접 검토 후 Apps Script 프로젝트에 붙여넣어야 적용됨**(git PR 리뷰에 대응하는 단계 — 이 저장소가 실사용 시트에 자동 배포하지 않음). 저장소 공개/비공개 여부에 따라 PAT 설정이 필요할 수 있음(README 참고) |
 
 각 Phase는 이전 Phase의 테스트가 그린일 때만 다음으로 넘어갑니다 — 기존
 `AGENTS.md`("every behavior change needs tests")를 그대로 따릅니다. 심층 통합을

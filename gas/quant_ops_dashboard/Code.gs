@@ -1,3 +1,7 @@
+// DEPRECATED (2026-09-03, docs/FUNDAMENTALS_INTEGRATION.md 9-2절/Phase 10).
+// 운영은 기존 Cowork CSV 기반 시트를 계속 씁니다. 이 파일은 저장소 히스토리로만
+// 남깁니다 -- 새로 배포하거나 여기에 기능을 추가하지 마세요.
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Quant Ops')
