@@ -128,3 +128,15 @@ def test_build_url_appends_us_suffix_when_missing() -> None:
 
     assert provider._build_url("AAPL") == "https://stooq.com/q/d/l/?s=aapl.us&i=d"
     assert provider._build_url("7203.jp") == "https://stooq.com/q/d/l/?s=7203.jp&i=d"
+
+
+def test_build_url_omits_apikey_param_when_no_key_configured() -> None:
+    provider = StooqMarketDataProvider()
+
+    assert "apikey" not in provider._build_url("AAPL")
+
+
+def test_build_url_appends_apikey_param_when_key_configured() -> None:
+    provider = StooqMarketDataProvider(api_key="test-key-123")
+
+    assert provider._build_url("AAPL") == "https://stooq.com/q/d/l/?s=aapl.us&i=d&apikey=test-key-123"

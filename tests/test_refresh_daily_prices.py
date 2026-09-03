@@ -8,6 +8,7 @@ from multica_quant_ops.data.refresh_daily_prices import (
     PriceRow,
     load_existing_prices,
     load_ticker_list,
+    main,
     refresh_prices,
     run,
     write_prices_csv,
@@ -161,3 +162,90 @@ def test_run_end_to_end_writes_csv_and_preserves_stale_row(tmp_path: Path) -> No
     assert reloaded["AAPL"].close_price == 200.0
     assert reloaded["MSFT"].close_price == 392.0
     assert reloaded["MSFT"].stale is True
+
+
+def test_run_passes_api_key_to_default_stooq_provider_when_none_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stooq's endpoint has required a key since 2026-03 (docs 9-7) -- when the
+    caller doesn't supply a provider directly, run() must build the default
+    StooqMarketDataProvider with whatever api_key it was given, not silently
+    drop it.
+    """
+    import multica_quant_ops.data.refresh_daily_prices as refresh_module
+
+    tickers_file = tmp_path / "tickers.txt"
+    tickers_file.write_text("AAPL\n", encoding="utf-8")
+    output_file = tmp_path / "daily_prices.csv"
+
+    captured: dict[str, object] = {}
+
+    class _CapturingProvider:
+        def __init__(self, api_key: str | None = None) -> None:
+            captured["api_key"] = api_key
+
+        def fetch_quote(self, symbol: str) -> MarketQuote:
+            raise ValueError("no data")
+
+    monkeypatch.setattr(refresh_module, "StooqMarketDataProvider", _CapturingProvider)
+
+    run(tickers_file, output_file, api_key="test-key-456")
+
+    assert captured["api_key"] == "test-key-456"
+
+
+def test_main_reads_stooq_api_key_from_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import multica_quant_ops.data.refresh_daily_prices as refresh_module
+
+    tickers_file = tmp_path / "tickers.txt"
+    tickers_file.write_text("AAPL\n", encoding="utf-8")
+    output_file = tmp_path / "daily_prices.csv"
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(
+        tickers_file_arg: Path,
+        output_file_arg: Path,
+        provider: object | None = None,
+        api_key: str | None = None,
+    ) -> int:
+        captured["api_key"] = api_key
+        return 0
+
+    monkeypatch.setattr(refresh_module, "run", _fake_run)
+    monkeypatch.setenv("STOOQ_API_KEY", "env-key-789")
+
+    exit_code = main(["--tickers-file", str(tickers_file), "--output", str(output_file)])
+
+    assert exit_code == 0
+    assert captured["api_key"] == "env-key-789"
+
+
+def test_main_defaults_to_no_api_key_when_env_var_unset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import multica_quant_ops.data.refresh_daily_prices as refresh_module
+
+    tickers_file = tmp_path / "tickers.txt"
+    tickers_file.write_text("AAPL\n", encoding="utf-8")
+    output_file = tmp_path / "daily_prices.csv"
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(
+        tickers_file_arg: Path,
+        output_file_arg: Path,
+        provider: object | None = None,
+        api_key: str | None = None,
+    ) -> int:
+        captured["api_key"] = api_key
+        return 0
+
+    monkeypatch.setattr(refresh_module, "run", _fake_run)
+    monkeypatch.delenv("STOOQ_API_KEY", raising=False)
+
+    main(["--tickers-file", str(tickers_file), "--output", str(output_file)])
+
+    assert captured["api_key"] is None

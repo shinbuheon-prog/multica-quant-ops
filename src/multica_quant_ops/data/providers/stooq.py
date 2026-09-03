@@ -1,11 +1,21 @@
 """Stooq-based market data provider.
 
-Stooq (https://stooq.com) publishes free, key-less daily OHLCV CSV downloads.
-This provider exists specifically for the high-volume, low-value-per-call use
-case that Alpha Vantage's free tier cannot cover: refreshing daily closes for
-dozens of tickers every day (see docs/FUNDAMENTALS_INTEGRATION.md, section
-9-3). `AlphaVantageMarketDataProvider` remains the provider for the existing
+Stooq (https://stooq.com) publishes daily OHLCV CSV downloads. This provider
+exists specifically for the high-volume, low-value-per-call use case that
+Alpha Vantage's free tier cannot cover: refreshing daily closes for dozens of
+tickers every day (see docs/FUNDAMENTALS_INTEGRATION.md, section 9-3).
+`AlphaVantageMarketDataProvider` remains the provider for the existing
 low-frequency same-day preparation flow; this one is for daily batch refresh.
+
+As of 2026-03 (confirmed against the live endpoint 2026-09-03, see
+docs/FUNDAMENTALS_INTEGRATION.md section 9-7) the `/q/d/l/` download
+endpoint is no longer key-less: an unauthenticated request gets back an
+"apply for a key" page instead of CSV, which this provider's caller sees as
+an HTTP 404. A key is obtained once by a human passing a CAPTCHA at
+`https://stooq.com/q/d/?s=<any-ticker>&get_apikey` -- this class cannot
+obtain one itself, and never will (no CAPTCHA-solving). Pass whatever key
+the human obtained as `api_key`; it is appended to every request as the
+`apikey` query parameter, exactly per Stooq's documented format.
 
 Stooq has no published SLA or rate-limit contract, so callers that need
 resilience across a batch (continue past one failed symbol, keep the previous
@@ -41,9 +51,11 @@ class StooqMarketDataProvider(MarketDataProvider):
         self,
         base_url: str = "https://stooq.com/q/d/l/",
         timeout_seconds: float = 20.0,
+        api_key: str | None = None,
     ) -> None:
         self.base_url = base_url
         self.timeout_seconds = timeout_seconds
+        self.api_key = api_key
 
     def fetch_quote(self, symbol: str) -> MarketQuote:
         bars = self._fetch_daily_bars(symbol, limit=2)
@@ -93,7 +105,10 @@ class StooqMarketDataProvider(MarketDataProvider):
         stooq_symbol = symbol.strip().lower()
         if "." not in stooq_symbol:
             stooq_symbol = f"{stooq_symbol}.us"
-        return f"{self.base_url}?s={stooq_symbol}&i=d"
+        url = f"{self.base_url}?s={stooq_symbol}&i=d"
+        if self.api_key:
+            url += f"&apikey={self.api_key}"
+        return url
 
     @staticmethod
     def _parse_csv(raw: str, symbol: str) -> list[StooqDailyBar]:
