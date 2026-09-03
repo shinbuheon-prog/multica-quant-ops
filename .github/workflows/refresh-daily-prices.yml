@@ -1,0 +1,52 @@
+name: Refresh daily prices
+
+# Runs entirely on GitHub's infrastructure, independent of whether a Cowork
+# session happens to be open. This is what closes the price-staleness gap
+# documented in docs/FUNDAMENTALS_INTEGRATION.md (sections 5-1, 5-4, 9-3):
+# a Stooq-based batch refresh of every ticker in ops/tickers.txt, committed
+# straight back to the repo as ops/prices/daily_prices.csv.
+#
+# No secrets are required for this workflow (Stooq needs no API key) — it
+# is intentionally kept separate from anything that still uses
+# ALPHAVANTAGE_API_KEY (the same-day prep flow), so this job never blocks
+# on that key being configured.
+
+on:
+  schedule:
+    # 21:30 UTC = 06:30 KST, after the US regular session has closed
+    # (16:00 America/New_York) and Stooq has settled the day's bar.
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run daily price refresh
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m multica_quant_ops.data.refresh_daily_prices \
+            --tickers-file ops/tickers.txt \
+            --output ops/prices/daily_prices.csv
+
+      - name: Commit updated prices
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- ops/prices/daily_prices.csv; then
+            echo "No price changes to commit."
+            exit 0
+          fi
+          git add ops/prices/daily_prices.csv
+          git commit -m "Refresh daily prices ($(date -u +%Y-%m-%d))"
+          git push
