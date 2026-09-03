@@ -1,9 +1,62 @@
-# Daily price-refresh universe for scripts/refresh_daily_prices.py.
+# Daily price-refresh universe for multica_quant_ops.data.refresh_daily_prices.
 # One ticker per line, '#' starts a comment. Stooq US-listed tickers need no
 # suffix (AAPL); non-US tickers use Stooq's own suffix (e.g. 7203.jp).
 #
-# This file is intentionally empty for now. It gets populated during
-# Phase 6 of docs/FUNDAMENTALS_INTEGRATION.md, when the 44 formally-scored
-# + 16 watchlist tickers migrate over from the Cowork pipeline's
-# _watchlist.md. Until then, the daily-price-refresh workflow runs as a
-# harmless no-op (zero tickers to fetch, empty CSV written).
+# Populated 2026-09-03 from the Cowork pipeline's universe.csv (44 tickers,
+# see docs/FUNDAMENTALS_INTEGRATION.md Phase 6/9-4) -- all NASDAQ/NYSE listed,
+# so Stooq's default ".us" suffix (StooqMarketDataProvider._build_url) applies
+# cleanly to every line below.
+#
+# Deliberately NOT included: the 16-ticker price-only watchlist
+# (/home/claude/watchlist_priceonly.csv in the Cowork session) -- those are
+# KRX/TYO/SIX/LON/OTC listings whose correct Stooq ticker suffix has not been
+# verified in this project (the same reason ABBN/ARQQ/IPSEY/OXIG needed
+# currency and coverage caveats there instead of a plain number). Adding a
+# guessed suffix risks silently fetching the wrong instrument or nothing at
+# all, which is worse than leaving them out -- consistent with this
+# project's "지어내지 않는다" principle. Add them here only after confirming
+# each symbol resolves correctly on https://stooq.com/q/d/l/?s=<sym>&i=d.
+AAPL
+AMZN
+ATI
+AVAV
+BE
+BKR
+BWXT
+COHR
+COIN
+CRCL
+CRSP
+ETN
+GLW
+GOOGL
+HOOD
+INSM
+IONQ
+JNJ
+LEU
+LHX
+LLY
+MDT
+MRK
+MRVL
+MUFG
+NEE
+NRIX
+NTRA
+NVTS
+OII
+OKLO
+ON
+PANW
+PLUG
+PSNL
+PTC
+QCOM
+QS
+RMBS
+RVMD
+SPCX
+TSLA
+TWST
+VRT

@@ -10,6 +10,17 @@ between the two files, a score or grade outside its documented range.
 Field vocabularies (health_grade, verdict, attractiveness_grade ranges) are
 sourced from 온톨로지.md (the pipeline's own field dictionary) as of
 2026-09-03 and may need updating if that dictionary changes.
+
+`universe.csv`'s `sector` and `sheet_export.csv`'s 섹터 are the same 7-value
+taxonomy in two different spellings -- s0_universe.py's SECTOR dict uses
+short internal codes (soft/aero/power/infra/fin/heal/semi) while
+s9_sheet_export.py writes the Korean label (소비자·소프트웨어/항공우주·방위/
+전력·에너지/AI 인프라/금융/헬스케어/반도체) into the sheet. Confirmed against
+a real 44-ticker export on 2026-09-03: every ticker's pair of values matched
+this exact 1:1 mapping, no third spelling appeared. SECTOR_CODE_LABELS below
+is that mapping -- a structural fact about the pipeline's own two-file
+schema, not a judgment call -- so the check translates before comparing
+rather than expecting the raw strings to match verbatim.
 """
 
 from collections.abc import Iterable
@@ -22,6 +33,17 @@ VALID_VERDICTS = frozenset(
     {"고위험 투기", "투기적", "중립 하단", "중립", "중립 상단", "미채점"}
 )
 VALID_ATTRACTIVENESS_GRADES = frozenset({"S", "A", "B", "C", "D", "평가불가"})
+
+# universe.csv sector code -> sheet_export.csv 섹터 label (see module docstring).
+SECTOR_CODE_LABELS: dict[str, str] = {
+    "soft": "소비자·소프트웨어",
+    "semi": "반도체",
+    "heal": "헬스케어",
+    "fin": "금융",
+    "infra": "AI 인프라",
+    "power": "전력·에너지",
+    "aero": "항공우주·방위",
+}
 
 
 def check_snapshot_against_universe(
@@ -51,10 +73,16 @@ def check_snapshot_against_universe(
         if entry is None:
             issues.append(f"{row.ticker}: in sheet_export.csv but missing from universe.csv")
             continue
-        if entry.sector != row.sector:
+        expected_label = SECTOR_CODE_LABELS.get(entry.sector)
+        if expected_label is None:
             issues.append(
-                f"{row.ticker}: sector mismatch (universe.csv={entry.sector!r}, "
-                f"sheet_export.csv={row.sector!r})"
+                f"{row.ticker}: universe.csv sector code {entry.sector!r} is not in "
+                f"SECTOR_CODE_LABELS -- update the mapping if the pipeline added a sector"
+            )
+        elif expected_label != row.sector:
+            issues.append(
+                f"{row.ticker}: sector mismatch (universe.csv={entry.sector!r} -> expected "
+                f"{expected_label!r}, sheet_export.csv={row.sector!r})"
             )
         if row.investment_score is not None and not (0.0 <= row.investment_score <= 10.0):
             issues.append(f"{row.ticker}: investment_score {row.investment_score} outside [0, 10]")

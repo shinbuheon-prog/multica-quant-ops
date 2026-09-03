@@ -30,7 +30,7 @@ def _universe_entry(ticker: str, sector: str = "soft", exit_date: date | None = 
 
 def _snapshot_row(
     ticker: str,
-    sector: str = "soft",
+    sector: str = "소비자·소프트웨어",  # the label SECTOR_CODE_LABELS['soft'] maps to
     investment_score: float | None = 7.5,
     confidence: float | None = 0.9,
     health_grade: str = "B",
@@ -95,11 +95,30 @@ def test_exited_universe_ticker_not_required_in_snapshot() -> None:
 
 def test_sector_mismatch_is_flagged() -> None:
     universe = [_universe_entry("AAPL", sector="soft")]
-    snapshot = [_snapshot_row("AAPL", sector="heal")]
+    snapshot = [_snapshot_row("AAPL", sector="헬스케어")]
 
     issues = check_snapshot_against_universe(snapshot, universe)
 
     assert any("sector mismatch" in issue for issue in issues)
+
+
+def test_unrecognized_universe_sector_code_is_flagged() -> None:
+    universe = [_universe_entry("AAPL", sector="unknown_code")]
+    snapshot = [_snapshot_row("AAPL")]
+
+    issues = check_snapshot_against_universe(snapshot, universe)
+
+    assert any("not in SECTOR_CODE_LABELS" in issue for issue in issues)
+
+
+def test_all_seven_sector_codes_translate_cleanly() -> None:
+    from multica_quant_ops.fundamentals.consistency import SECTOR_CODE_LABELS
+
+    for code, label in SECTOR_CODE_LABELS.items():
+        universe = [_universe_entry("AAPL", sector=code)]
+        snapshot = [_snapshot_row("AAPL", sector=label)]
+
+        assert check_snapshot_against_universe(snapshot, universe) == []
 
 
 def test_investment_score_out_of_range_is_flagged() -> None:
