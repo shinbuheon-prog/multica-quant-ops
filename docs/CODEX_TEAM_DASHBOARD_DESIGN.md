@@ -1,3 +1,7 @@
+> **Deprecated (2026-09-03, docs/FUNDAMENTALS_INTEGRATION.md 9-2절/Phase 10).** 실제
+> 운영은 이 문서가 설명하는 GAS 대시보드가 아니라 기존 Cowork CSV 기반 시트를 씁니다.
+> 이 문서는 저장소 히스토리로만 남깁니다.
+
 # Codex 주식 에이전트 팀원 + GAS 대시보드 설계도
 
 ## 목적

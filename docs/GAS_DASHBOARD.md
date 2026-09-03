@@ -1,3 +1,8 @@
+> **Deprecated (2026-09-03, docs/FUNDAMENTALS_INTEGRATION.md 9-2절/Phase 10).** 실제
+> 운영은 이 문서가 설명하는 대시보드가 아니라 기존 Cowork CSV 기반 시트("지표
+> 시트"/"통합대시보드")를 씁니다. 이 문서는 저장소 히스토리로만 남깁니다. 대신
+> `gas/cowork_sheet_bridge/`를 참고하세요.
+
 # GAS 대시보드 가이드
 
 ## 목적
