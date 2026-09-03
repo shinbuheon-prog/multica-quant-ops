@@ -86,7 +86,7 @@ def test_run_doctor_clean_inputs_is_healthy(tmp_path: Path) -> None:
         ["AAPL,Apple,soft,0000320193,9,2026-08-26,,,active,,,0,,,0,,yes,"],
     )
     snapshot = _write_snapshot(
-        tmp_path, [_snapshot_dict_row("AAPL", "soft", "2026-09-01")]
+        tmp_path, [_snapshot_dict_row("AAPL", "소비자·소프트웨어", "2026-09-01")]
     )
 
     report = run_doctor(universe, snapshot, as_of_date=date(2026, 9, 3))
@@ -101,7 +101,7 @@ def test_run_doctor_flags_sector_mismatch_and_stale_price(tmp_path: Path) -> Non
         ["AAPL,Apple,soft,0000320193,9,2026-08-26,,,active,,,0,,,0,,yes,"],
     )
     snapshot = _write_snapshot(
-        tmp_path, [_snapshot_dict_row("AAPL", "heal", "2026-08-01")]
+        tmp_path, [_snapshot_dict_row("AAPL", "헬스케어", "2026-08-01")]
     )
 
     report = run_doctor(universe, snapshot, as_of_date=date(2026, 9, 3), max_price_age_days=14)
@@ -112,7 +112,7 @@ def test_run_doctor_flags_sector_mismatch_and_stale_price(tmp_path: Path) -> Non
 
 
 def test_run_doctor_missing_universe_file_reports_issue(tmp_path: Path) -> None:
-    snapshot = _write_snapshot(tmp_path, [_snapshot_dict_row("AAPL", "soft", "2026-09-01")])
+    snapshot = _write_snapshot(tmp_path, [_snapshot_dict_row("AAPL", "소비자·소프트웨어", "2026-09-01")])
 
     report = run_doctor(tmp_path / "nope.csv", snapshot)
 
@@ -126,7 +126,7 @@ def test_run_doctor_includes_filing_alerts_log_validation(tmp_path: Path) -> Non
         ["AAPL,Apple,soft,0000320193,9,2026-08-26,,,active,,,0,,,0,,yes,"],
     )
     snapshot = _write_snapshot(
-        tmp_path, [_snapshot_dict_row("AAPL", "soft", "2026-09-01")]
+        tmp_path, [_snapshot_dict_row("AAPL", "소비자·소프트웨어", "2026-09-01")]
     )
     bad_log = tmp_path / "filing_alerts.csv"
     bad_log.write_text("ticker,filed_date\nAAPL,2026-08-30\n", encoding="utf-8")
