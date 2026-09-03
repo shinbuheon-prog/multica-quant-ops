@@ -247,7 +247,7 @@ Phase 5(저장소 되살리기)에 이 워크플로 구축을 포함시켜, **�
 | **6** | `fundamentals/` 서브모듈 신설 — ~~`score5~8_full.py`류의 채점 로직을 재작성~~ **(9-4절에서 얇은 어댑터로 수정)**: Cowork 파이프라인의 산출물(`universe.csv`·`sheet_export.csv`)을 소스로 삼는 타입 로더 + 파일간 정합성 검사만 구현. 완료 조건은 점수 일치가 아니라 로더·검사 테스트 그린 |
 | **7** | `data/quality.py` 확장 — 펀더멘털 크기 이상탐지 재작성(GOOGL 케이스를 회귀 테스트로 등록) |
 | **8** | ✅ `fundamentals/filing_alert.py`(`filing_alert_latest.json` 타입 로더 — Phase 6과 같은 얇은 어댑터 원칙, 재채점 자동해제 로직은 재작성하지 않고 s9d_filing_alert.py의 결과를 그대로 신뢰) + `fundamentals/notify.py`(기존 `discord_notify.py`/`telegram_notify.py`의 전송 함수 재사용, 신호 없으면 발송 자체를 건너뛰는 노이즈 최소화) + `.github/workflows/notify-filing-alerts.yml`(해당 JSON이 저장소에 커밋될 때 자동 발송). **남은 과제**: `filing_alert_latest.json`이 실제로 이 저장소에 어떻게 들어오는지는 아직 미정 — 9-4절 참고 |
-| **9** | Scout/Doctor 신규 에이전트 코드화, 편입 승인 흐름(이슈 템플릿 또는 PR 리뷰로 사람 승인점 명시) |
+| **9** | ✅ **Scout는 코드화하지 않음**(3절 정의 그대로 LLM 리서치 세션 — 4절의 결정론/LLM 경계 원칙상 이 저장소에 재작성할 대상이 아님). **Doctor는 코드화함**: `fundamentals/doctor.py`(정합성+신선도+공시로그 검사를 묶은 `verify_pipeline.py` 스타일 진단, 0 NG 목표). **편입 승인**은 `.github/ISSUE_TEMPLATE/ticker_candidate.md`로 명시(발굴은 자동, 편입 결정은 사람 체크박스) |
 | **10** | 대시보드export를 `dashboard_export.py`와 통합, 기존 GAS 대시보드는 유지하며 저장소 산출물을 소스로 전환 |
 
 각 Phase는 이전 Phase의 테스트가 그린일 때만 다음으로 넘어갑니다 — 기존
