@@ -1,0 +1,48 @@
+name: Notify filing alerts
+
+# Couples the fundamentals filing-detection signal to GitHub: whenever
+# ops/fundamentals/filing_alert_latest.json changes on `main`, this fires a
+# Discord/Telegram notification via multica_quant_ops.fundamentals.notify
+# (docs/FUNDAMENTALS_INTEGRATION.md, Phase 8). It never re-derives the
+# signal -- it only reads the already-resolved JSON that the Cowork
+# pipeline's s9d_filing_alert.py produces and formats it for delivery.
+#
+# ops/fundamentals/filing_alert_latest.json does not exist in this repo yet
+# -- how it gets synced here from the Cowork session is still an open
+# operational question (see docs/FUNDAMENTALS_INTEGRATION.md section 9-4).
+# Until that file exists, this workflow only ever runs on manual dispatch
+# and exits 0 with nothing to send (fundamentals/filing_alert.py treats a
+# missing file as "no alerts yet", not an error) -- same harmless-no-op
+# pattern as ops/tickers.txt in Phase 5 before it was populated.
+#
+# Secrets required (only used if set -- notify.py skips a channel whose
+# credentials are absent rather than failing):
+#   DISCORD_WEBHOOK_URL
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ops/fundamentals/filing_alert_latest.json"
+  workflow_dispatch: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Send filing-alert notification
+        env:
+          PYTHONPATH: src
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -m multica_quant_ops.fundamentals.notify \
+            --filing-alert-json ops/fundamentals/filing_alert_latest.json
