@@ -9,7 +9,21 @@ gap described in docs/FUNDAMENTALS_INTEGRATION.md section 5-4.
 Design point (section 9-3 of that doc): one bad ticker must never fail the
 whole run. Each symbol is fetched independently; on failure the previous
 row is carried forward and flagged `stale=true` rather than dropped, so a
-transient Stooq hiccup degrades gracefully instead of blanking a price.
+transient provider hiccup degrades gracefully instead of blanking a price.
+
+Provider history (see docs/FUNDAMENTALS_INTEGRATION.md 9-3, 9-6..9-10):
+Stooq was the original choice specifically because it needed no key, but by
+2026-09 it requires passing a JavaScript proof-of-work challenge that only a
+real browser's JS engine can complete -- automating that is bot-detection
+bypass, which this project does not do, so the default provider is now
+Alpha Vantage (`--provider alphavantage`, the default). Alpha Vantage's free
+tier is 25 calls/day, well under 44 tickers, so a full run only *attempts*
+`--batch-size` tickers (default 20, leaving headroom under the 25 cap) and
+rotates through the ticker list across runs via a persisted cursor file --
+every ticker gets refreshed roughly every couple of days rather than daily,
+which is the honest tradeoff of the free tier rather than something to
+paper over. `--provider stooq` is kept available (with the same-day-flow
+degrade-per-ticker behavior) in case Stooq's requirement changes again.
 """
 
 import argparse
@@ -20,6 +34,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+from multica_quant_ops.data.providers.alphavantage import AlphaVantageMarketDataProvider
 from multica_quant_ops.data.providers.base import MarketDataProvider
 from multica_quant_ops.data.providers.stooq import StooqDataError, StooqMarketDataProvider
 
@@ -103,6 +118,41 @@ def load_existing_prices(path: Path) -> dict[str, PriceRow]:
         return {row["ticker"]: PriceRow.from_csv_row(row) for row in reader}
 
 
+def select_ticker_batch(tickers: list[str], cursor: int, batch_size: int) -> tuple[list[str], int]:
+    """Pick the next `batch_size` tickers starting at `cursor`, wrapping
+    around the list, and return (this run's tickers, the cursor to persist
+    for the next run).
+
+    This is how a free-tier daily call quota turns into "every ticker gets
+    refreshed roughly every len(tickers)/batch_size runs" instead of
+    "daily" -- see the module docstring and docs/FUNDAMENTALS_INTEGRATION.md
+    9-10.
+    """
+    if not tickers or batch_size <= 0:
+        return [], cursor
+    n = len(tickers)
+    start = cursor % n
+    size = min(batch_size, n)
+    batch = [tickers[(start + i) % n] for i in range(size)]
+    next_cursor = (start + size) % n
+    return batch, next_cursor
+
+
+def load_cursor(path: Path) -> int:
+    if not path.exists():
+        return 0
+    text = path.read_text(encoding="utf-8").strip()
+    try:
+        return int(text)
+    except ValueError:
+        return 0
+
+
+def save_cursor(path: Path, cursor: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(str(cursor), encoding="utf-8")
+
+
 def refresh_prices(
     tickers: list[str],
     provider: MarketDataProvider,
@@ -157,24 +207,57 @@ def run(
     output_file: Path,
     provider: MarketDataProvider | None = None,
     api_key: str | None = None,
+    cursor_file: Path | None = None,
+    batch_size: int | None = None,
+    source_name: str = "stooq",
 ) -> int:
     provider = provider or StooqMarketDataProvider(api_key=api_key)
     tickers = load_ticker_list(tickers_file)
     existing = load_existing_prices(output_file)
     now = datetime.now(UTC)
 
-    results, failures = refresh_prices(tickers, provider, existing, now)
-    write_prices_csv(output_file, results)
+    rotating = cursor_file is not None and batch_size is not None
+    if rotating:
+        assert cursor_file is not None and batch_size is not None  # narrowed by `rotating`
+        cursor = load_cursor(cursor_file)
+        batch, next_cursor = select_ticker_batch(tickers, cursor, batch_size)
+    else:
+        batch, next_cursor = tickers, None
 
-    print(f"Refreshed {len(results)}/{len(tickers)} tickers -> {output_file}")
+    batch_results, failures = refresh_prices(batch, provider, existing, now, source_name=source_name)
+    # Tickers outside this run's batch keep whatever row they already had --
+    # they're not "failed", just not due for a refresh yet under rotation.
+    merged = {**existing, **batch_results}
+    write_prices_csv(output_file, merged)
+
+    if rotating:
+        assert cursor_file is not None and next_cursor is not None
+        save_cursor(cursor_file, next_cursor)
+
+    print(f"Refreshed {len(batch_results)}/{len(batch)} tickers in this run's batch -> {output_file}")
+    if batch_size is not None and len(batch) < len(tickers):
+        print(
+            f"Batch covered {len(batch)}/{len(tickers)} tickers total "
+            f"(rotating via {cursor_file} -- see docs/FUNDAMENTALS_INTEGRATION.md 9-10)."
+        )
     if failures:
         print(f"{len(failures)} ticker(s) fell back to the previous price (stale=true):")
         for ticker, reason in failures:
             print(f"  {ticker}: {reason}")
 
-    missing = [t for t in tickers if t not in results]
-    if missing:
-        print(f"{len(missing)} ticker(s) have no price at all yet (no previous row to fall back to): {missing}")
+    missing_overall = [t for t in tickers if t not in merged]
+    if missing_overall:
+        print(
+            f"{len(missing_overall)} ticker(s) have no price at all yet "
+            f"(never successfully fetched): {missing_overall}"
+        )
+
+    usage = getattr(provider, "last_usage_snapshot", None)
+    if usage is not None:
+        print(
+            f"Provider usage today ({usage.date}): {usage.used_calls}/{usage.daily_limit} "
+            f"calls used, {usage.remaining_calls} remaining."
+        )
 
     return 0
 
@@ -193,14 +276,79 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("ops/prices/daily_prices.csv"),
         help="CSV file to write/update.",
     )
+    parser.add_argument(
+        "--provider",
+        choices=["alphavantage", "stooq"],
+        default="alphavantage",
+        help=(
+            "Which market data provider to use. alphavantage (default) requires "
+            "ALPHAVANTAGE_API_KEY and rotates through the ticker list under its "
+            "free-tier daily call cap (see --batch-size). stooq requires no key "
+            "but as of 2026-09 fails a JavaScript bot-verification challenge from "
+            "automated environments (docs/FUNDAMENTALS_INTEGRATION.md 9-9) -- kept "
+            "available in case that changes."
+        ),
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=20,
+        help=(
+            "Alpha Vantage only: max tickers to attempt in this run (default 20, "
+            "leaving headroom under the free tier's 25-calls/day cap). Ignored for "
+            "--provider stooq, which always attempts every ticker."
+        ),
+    )
+    parser.add_argument(
+        "--cursor-file",
+        type=Path,
+        default=Path("ops/prices/refresh_cursor.txt"),
+        help="Alpha Vantage only: where to persist rotation position between runs.",
+    )
+    parser.add_argument(
+        "--alphavantage-usage-file",
+        type=Path,
+        default=Path("ops/prices/alphavantage_usage.json"),
+        help="Alpha Vantage only: where to persist today's call count between runs.",
+    )
+    parser.add_argument(
+        "--alphavantage-daily-limit",
+        type=int,
+        default=25,
+        help="Alpha Vantage only: the account's actual daily call cap.",
+    )
     args = parser.parse_args(argv)
-    # Stooq's /q/d/l/ endpoint has required a key since 2026-03 (see
-    # docs/FUNDAMENTALS_INTEGRATION.md 9-7) -- read it from the environment
-    # rather than a CLI flag so it never appears in a shell history or a
-    # workflow log. Missing/empty is fine: every request will 404 and each
-    # ticker degrades to stale=true via the same per-symbol failure path as
-    # any other Stooq outage.
-    return run(args.tickers_file, args.output, api_key=os.environ.get("STOOQ_API_KEY") or None)
+
+    if args.provider == "stooq":
+        # Stooq's /q/d/l/ endpoint has required a key since 2026-03 (see
+        # docs/FUNDAMENTALS_INTEGRATION.md 9-7) -- read it from the environment
+        # rather than a CLI flag so it never appears in a shell history or a
+        # workflow log. Missing/empty is fine: every request will 404 and each
+        # ticker degrades to stale=true via the same per-symbol failure path as
+        # any other Stooq outage.
+        stooq_provider = StooqMarketDataProvider(api_key=os.environ.get("STOOQ_API_KEY") or None)
+        return run(args.tickers_file, args.output, provider=stooq_provider, source_name="stooq")
+
+    api_key = os.environ.get("ALPHAVANTAGE_API_KEY")
+    if not api_key:
+        raise SystemExit(
+            "ALPHAVANTAGE_API_KEY is required for --provider alphavantage (the default). "
+            "Set --provider stooq to use the key-less (currently blocked, see "
+            "docs/FUNDAMENTALS_INTEGRATION.md 9-9) Stooq provider instead."
+        )
+    alphavantage_provider = AlphaVantageMarketDataProvider.build_free_mode(
+        api_key=api_key,
+        usage_file=args.alphavantage_usage_file,
+        daily_limit=args.alphavantage_daily_limit,
+    )
+    return run(
+        args.tickers_file,
+        args.output,
+        provider=alphavantage_provider,
+        cursor_file=args.cursor_file,
+        batch_size=args.batch_size,
+        source_name="alphavantage",
+    )
 
 
 if __name__ == "__main__":
