@@ -6,7 +6,7 @@ name: Refresh daily prices
 # a batch refresh of every ticker in ops/tickers.txt, committed straight
 # back to the repo as ops/prices/daily_prices.csv.
 #
-# Provider: Alpha Vantage (docs/FUNDAMENTALS_INTEGRATION.md 9-9, 9-10, 9-11).
+# Provider: Alpha Vantage (docs/FUNDAMENTALS_INTEGRATION.md 9-9, 9-10, 9-11, 9-12).
 # Stooq was the original choice because it needed no key, but by 2026-09 it
 # requires passing a JavaScript proof-of-work challenge that only a real
 # browser can complete -- this project does not automate bot-detection
@@ -17,15 +17,18 @@ name: Refresh daily prices
 # shared key means this workflow's automated runs can silently starve (or
 # be starved by) that flow's daily budget. A single key's free tier can't
 # cover all 44 tickers in one run, so by default this only attempts
-# ops/prices/refresh_cursor.txt's next batch and rotates -- see the
-# refresh_daily_prices.py module docstring.
+# ops/prices/refresh_cursor.txt's next batch (20 tickers) and rotates --
+# see the refresh_daily_prices.py module docstring.
 #
 # Optional: ALPHAVANTAGE_API_KEY_2 and ALPHAVANTAGE_API_KEY_3 secrets add
-# overflow capacity (25 more calls/day each, from their own separate free
-# Alpha Vantage accounts/keys -- not required, referencing a secret that
-# doesn't exist just resolves to an empty string). Once enough keys are
-# registered to cover all 44 tickers in one run, the rotation above stops
-# mattering automatically -- no other change needed (9-11).
+# backup capacity from their own separate free Alpha Vantage accounts/keys
+# (not required, referencing a secret that doesn't exist just resolves to an
+# empty string) -- if the current key gets rejected mid-batch, the next one
+# is tried instead of just failing that ticker. They deliberately do NOT
+# raise the 20-ticker batch size, though: a real run with 3 keys registered
+# only got ~25 calls/day through in total rather than 75, so assuming more
+# keys means more throughput would risk silently starving whichever tickers
+# land after that real cutoff, every single day (9-12).
 
 on:
   schedule:
