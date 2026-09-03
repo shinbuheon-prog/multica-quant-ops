@@ -43,10 +43,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- ops/prices/daily_prices.csv; then
+          # `git diff --quiet` only compares tracked files -- on the very
+          # first run ops/prices/daily_prices.csv doesn't exist yet, so it
+          # is untracked and `git diff` silently ignores it, making this
+          # look like "no changes" even though the file was just created.
+          # Stage first, then check the *staged* diff against HEAD, which
+          # correctly reports a new file as a change too.
+          git add ops/prices/daily_prices.csv
+          if git diff --cached --quiet; then
             echo "No price changes to commit."
             exit 0
           fi
-          git add ops/prices/daily_prices.csv
           git commit -m "Refresh daily prices ($(date -u +%Y-%m-%d))"
           git push
