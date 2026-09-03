@@ -474,12 +474,14 @@ def test_usage_file_for_key_two_and_three_get_sibling_files() -> None:
     assert usage_file_for_key(base, 3) == Path("ops/prices/alphavantage_usage_3.json")
 
 
-def test_main_builds_multi_key_provider_and_full_coverage_batch_size_when_extra_keys_present(
+def test_main_builds_multi_key_provider_but_keeps_the_default_batch_size(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """With enough keys to cover the whole ticker list in one run (2 keys *
-    25/day = 50 >= 3 tickers here), main() should stop rotating and attempt
-    every ticker every run (docs/FUNDAMENTALS_INTEGRATION.md 9-11)."""
+    """Extra keys give MultiKeyAlphaVantageProvider backup capacity within a
+    run, but must NOT grow --batch-size's default -- a real run showed extra
+    keys don't reliably raise the total daily throughput (9-12), so growing
+    the batch on the assumption they would would risk permanently starving
+    whichever tickers land after the real cutoff every day."""
     import multica_quant_ops.data.refresh_daily_prices as refresh_module
     from multica_quant_ops.data.providers.alphavantage import MultiKeyAlphaVantageProvider
 
@@ -507,7 +509,7 @@ def test_main_builds_multi_key_provider_and_full_coverage_batch_size_when_extra_
 
     assert exit_code == 0
     assert isinstance(captured["provider"], MultiKeyAlphaVantageProvider)
-    assert captured["batch_size"] == 3  # all 3 tickers, no rotation needed
+    assert captured["batch_size"] == 20  # unchanged by having 2 keys registered
 
 
 def test_main_respects_explicit_batch_size_even_with_multiple_keys(

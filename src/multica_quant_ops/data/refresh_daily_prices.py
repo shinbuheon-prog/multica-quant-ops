@@ -11,24 +11,26 @@ whole run. Each symbol is fetched independently; on failure the previous
 row is carried forward and flagged `stale=true` rather than dropped, so a
 transient provider hiccup degrades gracefully instead of blanking a price.
 
-Provider history (see docs/FUNDAMENTALS_INTEGRATION.md 9-3, 9-6..9-11):
+Provider history (see docs/FUNDAMENTALS_INTEGRATION.md 9-3, 9-6..9-12):
 Stooq was the original choice specifically because it needed no key, but by
 2026-09 it requires passing a JavaScript proof-of-work challenge that only a
 real browser's JS engine can complete -- automating that is bot-detection
 bypass, which this project does not do, so the default provider is now
-Alpha Vantage (`--provider alphavantage`, the default). A single Alpha
-Vantage free-tier key is 25 calls/day, well under 44 tickers, so with only
-`ALPHAVANTAGE_API_KEY` set a run only *attempts* `--batch-size` tickers
-(default 20, leaving headroom under the 25 cap) and rotates through the
-ticker list across runs via a persisted cursor file -- every ticker gets
-refreshed roughly every couple of days rather than daily. Registering
-additional *dedicated* keys as `ALPHAVANTAGE_API_KEY_2`, `_3`, ... (see
-9-11) raises the combined daily budget by 25 calls each, and once that
-combined budget covers the whole ticker list the rotation naturally
-disappears (every ticker refreshes every run instead of every couple of
-days) -- no flag needed, `--batch-size` still overrides this if set
-explicitly. `--provider stooq` is kept available (with the same-day-flow
-degrade-per-ticker behavior) in case Stooq's requirement changes again.
+Alpha Vantage (`--provider alphavantage`, the default). A free-tier key is
+roughly 25 calls/day, well under 44 tickers, so a run only *attempts*
+`--batch-size` tickers (default 20 -- always 20, regardless of how many
+`ALPHAVANTAGE_API_KEY_2`, `_3`, ... keys are registered, see 9-12) and
+rotates through the ticker list across runs via a persisted cursor file --
+every ticker gets refreshed roughly every couple of days rather than daily.
+Extra keys give `MultiKeyAlphaVantageProvider` backup capacity *within* that
+fixed 20-ticker batch (falling through to the next key once the current one
+gets rejected, whether our own local tracker predicted it or not), but they
+deliberately do not raise `--batch-size` itself -- a real run with 3 keys
+showed only ~25 calls/day actually succeeding in total, not 75 (9-12), and
+assuming otherwise would silently starve whichever tickers land after that
+real cutoff every single day. `--provider stooq` is kept available (with
+the same-day-flow degrade-per-ticker behavior) in case Stooq's requirement
+changes again.
 """
 
 import argparse
@@ -337,11 +339,10 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=None,
         help=(
-            "Alpha Vantage only: max tickers to attempt in this run. Defaults to "
-            "20 with a single key (leaving headroom under the free tier's "
-            "25-calls/day cap), or to the full ticker list once enough "
-            "ALPHAVANTAGE_API_KEY_2/_3/... keys are registered to cover it in one "
-            "run (see docs/FUNDAMENTALS_INTEGRATION.md 9-11). Ignored for "
+            "Alpha Vantage only: max tickers to attempt in this run (default 20, "
+            "regardless of how many ALPHAVANTAGE_API_KEY_2/_3/... keys are "
+            "registered -- see docs/FUNDAMENTALS_INTEGRATION.md 9-12 for why extra "
+            "keys aren't assumed to raise this automatically). Ignored for "
             "--provider stooq, which always attempts every ticker."
         ),
     )
@@ -403,14 +404,19 @@ def main(argv: list[str] | None = None) -> int:
 
     batch_size = args.batch_size
     if batch_size is None:
-        if len(api_keys) == 1:
-            batch_size = 20
-        else:
-            # Enough keys can cover the whole list in one run -- let them,
-            # rather than keeping the single-key rotation cadence around
-            # once it's no longer necessary (docs/FUNDAMENTALS_INTEGRATION.md 9-11).
-            total_capacity = len(api_keys) * args.alphavantage_daily_limit
-            batch_size = min(len(load_ticker_list(args.tickers_file)), total_capacity)
+        # Deliberately NOT "num_keys * daily_limit" regardless of how many
+        # keys are configured -- a real run with 3 keys showed only ~25
+        # calls/day actually going through in total, not 75 (9-12), so
+        # scaling the batch size up with key count would risk permanently
+        # starving whichever tickers land after that real cutoff (the
+        # rotation cursor never advances once batch_size >= the full list,
+        # so the same tail tickers would silently never refresh). Extra
+        # keys still help *within* this fixed batch, as backup capacity
+        # when the current key gets rejected mid-batch (see
+        # MultiKeyAlphaVantageProvider) -- they just don't get to grow the
+        # batch itself. Pass --batch-size explicitly to opt into a larger
+        # batch and accept that tail-starvation risk.
+        batch_size = 20
 
     return run(
         args.tickers_file,

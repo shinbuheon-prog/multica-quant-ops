@@ -134,23 +134,34 @@ class AlphaVantageMarketDataProvider(MarketDataProvider):
 
 
 class MultiKeyAlphaVantageProvider(MarketDataProvider):
-    """Spreads calls across several Alpha Vantage free-tier keys, each with
-    its own independent daily quota (see docs/FUNDAMENTALS_INTEGRATION.md
-    9-11). Registering N dedicated keys turns "25 calls/day" into "N * 25
-    calls/day" without the caller (refresh_daily_prices.py) needing to know
-    how many keys are configured.
+    """Spreads calls across several Alpha Vantage free-tier keys, each meant
+    to have its own independent daily quota (see
+    docs/FUNDAMENTALS_INTEGRATION.md 9-11). Whether that quota is actually
+    independent per key, per account, or per source IP is something Alpha
+    Vantage does not publish and this class cannot verify -- see 9-12 for
+    the real-run evidence that it may not scale as cleanly as "N keys = N *
+    25 calls/day" suggests, especially when every key is called from the
+    same machine/IP (e.g. one GitHub Actions run).
 
     Every call tries the underlying providers **in the order given** and
-    only advances to the next one when the current key's own quota is
-    already exhausted for the day (`DailyCallLimitExceededError`) -- this is
-    overflow capacity, not a round-robin split, so key 1 always carries the
-    load first and later keys sit idle until it runs out.
+    advances to the next one once the current key looks exhausted for the
+    day -- either because our own local tracker says so
+    (`DailyCallLimitExceededError`), or because Alpha Vantage's server
+    itself just rejected a request as over the daily limit
+    (`ProviderRateLimitError`, which our local tracker has no way to
+    predict in advance). Once a key has been rejected either way, it is
+    remembered as exhausted **for the rest of this run** and skipped
+    entirely on subsequent calls -- without this, a key whose *real* quota
+    ran out before our local counter caught up would otherwise get
+    retried, and rejected again, on every single remaining ticker in the
+    batch (see 9-12).
     """
 
     def __init__(self, providers: list[AlphaVantageMarketDataProvider]) -> None:
         if not providers:
             raise ValueError("MultiKeyAlphaVantageProvider requires at least one provider.")
         self._providers = providers
+        self._exhausted_indices: set[int] = set()
 
     def fetch_quote(self, symbol: str) -> MarketQuote:
         return self._call(lambda provider: provider.fetch_quote(symbol))
@@ -159,14 +170,23 @@ class MultiKeyAlphaVantageProvider(MarketDataProvider):
         return self._call(lambda provider: provider.fetch_daily_closes(symbol, limit))
 
     def _call(self, invoke: "Callable[[AlphaVantageMarketDataProvider], Any]") -> Any:
-        last_exc: DailyCallLimitExceededError | None = None
-        for provider in self._providers:
+        last_exc: DailyCallLimitExceededError | ProviderRateLimitError | None = None
+        for index, provider in enumerate(self._providers):
+            if index in self._exhausted_indices:
+                continue
             try:
                 return invoke(provider)
-            except DailyCallLimitExceededError as exc:
+            except (DailyCallLimitExceededError, ProviderRateLimitError) as exc:
+                self._exhausted_indices.add(index)
                 last_exc = exc
                 continue
-        assert last_exc is not None  # at least one provider always ran the loop body
+        if last_exc is None:
+            # Every provider was already marked exhausted from an earlier
+            # call this run, so the loop above never even tried one --
+            # surface that plainly rather than raising `None`.
+            raise DailyCallLimitExceededError(
+                "Every configured Alpha Vantage key is exhausted for today."
+            )
         raise last_exc
 
     @property

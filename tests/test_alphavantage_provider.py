@@ -54,14 +54,32 @@ def _provider(tmp_path: Path, name: str, daily_limit: int = 25) -> AlphaVantageM
     return provider
 
 
-def _install_fake_urlopen(monkeypatch: pytest.MonkeyPatch, calls: list[str]) -> None:
+def _install_fake_urlopen(
+    monkeypatch: pytest.MonkeyPatch, calls: list[str], rejected_keys: set[str] | None = None
+) -> None:
     """Records which api key each request used (from the querystring) and
-    returns a canned quote for whatever symbol was asked for.
+    returns a canned quote for whatever symbol was asked for -- unless that
+    key is in `rejected_keys`, in which case it returns the same
+    "Information: ... rate limit ..." payload Alpha Vantage's real server
+    sends for a request it rejects as over quota (see
+    docs/FUNDAMENTALS_INTEGRATION.md 9-12), which AlphaVantageMarketDataProvider
+    turns into a `ProviderRateLimitError`.
     """
+    rejected_keys = rejected_keys or set()
 
     def _fake_urlopen(url: str, timeout: float | None = None) -> _FakeResponse:
         query = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
-        calls.append(query["apikey"][0])
+        api_key = query["apikey"][0]
+        calls.append(api_key)
+        if api_key in rejected_keys:
+            return _FakeResponse(
+                {
+                    "Information": (
+                        f"We have detected your API key as {api_key} and our standard "
+                        "API rate limit is 25 requests per day."
+                    )
+                }
+            )
         return _FakeResponse(_quote_payload(query["symbol"][0]))
 
     monkeypatch.setattr(
@@ -120,6 +138,47 @@ def test_multi_key_provider_raises_once_every_key_is_exhausted(
         multi.fetch_quote("TSLA")
 
     assert calls == ["key-a", "key-b"]  # the failing 3rd call never reaches urlopen at all
+
+
+def test_multi_key_provider_falls_through_on_a_real_server_side_rate_limit_rejection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A key can get rejected by Alpha Vantage's real server before our own
+    local usage tracker believes it's out of room (docs/FUNDAMENTALS_INTEGRATION.md
+    9-12) -- that must fall through to the next key exactly like local
+    exhaustion does, not just fail the one ticker.
+    """
+    provider1 = _provider(tmp_path, "a")  # local tracker thinks it has 25 left
+    provider2 = _provider(tmp_path, "b")
+    calls: list[str] = []
+    _install_fake_urlopen(monkeypatch, calls, rejected_keys={"key-a"})
+
+    multi = MultiKeyAlphaVantageProvider([provider1, provider2])
+    quote = multi.fetch_quote("AAPL")
+
+    assert calls == ["key-a", "key-b"]
+    assert quote.symbol == "AAPL"
+
+
+def test_multi_key_provider_stops_retrying_a_key_the_server_already_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Once a key has been rejected server-side this run, later calls must
+    skip straight past it instead of hitting its real (already-exhausted)
+    quota again on every remaining ticker -- this is the fix for the
+    all-19-remaining-tickers-fail pattern seen in the real run (9-12).
+    """
+    provider1 = _provider(tmp_path, "a")
+    provider2 = _provider(tmp_path, "b")
+    calls: list[str] = []
+    _install_fake_urlopen(monkeypatch, calls, rejected_keys={"key-a"})
+
+    multi = MultiKeyAlphaVantageProvider([provider1, provider2])
+    multi.fetch_quote("AAPL")  # key-a rejected server-side, falls through to key-b
+    calls.clear()
+    multi.fetch_quote("MSFT")  # key-a must be skipped entirely this time
+
+    assert calls == ["key-b"]  # not ["key-a", "key-b"] -- key-a isn't retried
 
 
 def test_multi_key_provider_last_usage_snapshot_combines_every_key(tmp_path: Path) -> None:
