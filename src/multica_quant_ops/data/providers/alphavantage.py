@@ -2,12 +2,14 @@ import json
 import time
 import urllib.parse
 import urllib.request
-from datetime import date, datetime
+from collections.abc import Callable
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 from multica_quant_ops.data.providers.base import MarketDataProvider, MarketQuote
 from multica_quant_ops.data.providers.usage import (
+    DailyCallLimitExceededError,
     FileBackedUsageTracker,
     ProviderRateLimitError,
     ProviderUsageSnapshot,
@@ -129,3 +131,61 @@ class AlphaVantageMarketDataProvider(MarketDataProvider):
         remaining = self.min_interval_seconds - elapsed
         if remaining > 0:
             time.sleep(remaining)
+
+
+class MultiKeyAlphaVantageProvider(MarketDataProvider):
+    """Spreads calls across several Alpha Vantage free-tier keys, each with
+    its own independent daily quota (see docs/FUNDAMENTALS_INTEGRATION.md
+    9-11). Registering N dedicated keys turns "25 calls/day" into "N * 25
+    calls/day" without the caller (refresh_daily_prices.py) needing to know
+    how many keys are configured.
+
+    Every call tries the underlying providers **in the order given** and
+    only advances to the next one when the current key's own quota is
+    already exhausted for the day (`DailyCallLimitExceededError`) -- this is
+    overflow capacity, not a round-robin split, so key 1 always carries the
+    load first and later keys sit idle until it runs out.
+    """
+
+    def __init__(self, providers: list[AlphaVantageMarketDataProvider]) -> None:
+        if not providers:
+            raise ValueError("MultiKeyAlphaVantageProvider requires at least one provider.")
+        self._providers = providers
+
+    def fetch_quote(self, symbol: str) -> MarketQuote:
+        return self._call(lambda provider: provider.fetch_quote(symbol))
+
+    def fetch_daily_closes(self, symbol: str, limit: int) -> list[float]:
+        return self._call(lambda provider: provider.fetch_daily_closes(symbol, limit))
+
+    def _call(self, invoke: "Callable[[AlphaVantageMarketDataProvider], Any]") -> Any:
+        last_exc: DailyCallLimitExceededError | None = None
+        for provider in self._providers:
+            try:
+                return invoke(provider)
+            except DailyCallLimitExceededError as exc:
+                last_exc = exc
+                continue
+        assert last_exc is not None  # at least one provider always ran the loop body
+        raise last_exc
+
+    @property
+    def last_usage_snapshot(self) -> ProviderUsageSnapshot | None:
+        """Combined usage across *every* underlying key, not just whichever
+        one happened to serve the most recent call -- reporting only the
+        last key's count would understate how much of the total budget is
+        actually left once an earlier key is exhausted.
+        """
+        now = datetime.now(UTC)
+        snapshots = [
+            provider.usage_tracker.snapshot(now)
+            for provider in self._providers
+            if provider.usage_tracker is not None
+        ]
+        if not snapshots:
+            return None
+        return ProviderUsageSnapshot(
+            date=snapshots[0].date,
+            used_calls=sum(s.used_calls for s in snapshots),
+            daily_limit=sum(s.daily_limit for s in snapshots),
+        )

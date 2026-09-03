@@ -6,6 +6,7 @@ import pytest
 from multica_quant_ops.data.providers.base import MarketQuote
 from multica_quant_ops.data.refresh_daily_prices import (
     PriceRow,
+    collect_alphavantage_api_keys,
     load_cursor,
     load_existing_prices,
     load_ticker_list,
@@ -14,6 +15,7 @@ from multica_quant_ops.data.refresh_daily_prices import (
     run,
     save_cursor,
     select_ticker_batch,
+    usage_file_for_key,
     write_prices_csv,
 )
 
@@ -421,6 +423,123 @@ def test_run_with_rotation_advances_cursor_across_successive_runs(tmp_path: Path
 
     reloaded = load_existing_prices(output_file)
     assert set(reloaded) == {"AAPL", "MSFT", "GOOGL"}
+
+
+def test_collect_alphavantage_api_keys_returns_only_primary_when_no_extras() -> None:
+    assert collect_alphavantage_api_keys({"ALPHAVANTAGE_API_KEY": "av-key-123"}) == ["av-key-123"]
+
+
+def test_collect_alphavantage_api_keys_returns_empty_list_when_unset() -> None:
+    assert collect_alphavantage_api_keys({}) == []
+
+
+def test_collect_alphavantage_api_keys_picks_up_numbered_extras_in_order() -> None:
+    env = {
+        "ALPHAVANTAGE_API_KEY": "key-1",
+        "ALPHAVANTAGE_API_KEY_2": "key-2",
+        "ALPHAVANTAGE_API_KEY_3": "key-3",
+    }
+
+    assert collect_alphavantage_api_keys(env) == ["key-1", "key-2", "key-3"]
+
+
+def test_collect_alphavantage_api_keys_stops_at_the_first_missing_suffix() -> None:
+    # _4 is set but _3 (the gap right before it) is not -- numbering must be
+    # contiguous from 2, so collection stops at the gap and _4 is ignored.
+    env = {
+        "ALPHAVANTAGE_API_KEY": "key-1",
+        "ALPHAVANTAGE_API_KEY_2": "key-2",
+        "ALPHAVANTAGE_API_KEY_4": "key-4",
+    }
+
+    assert collect_alphavantage_api_keys(env) == ["key-1", "key-2"]
+
+
+def test_collect_alphavantage_api_keys_treats_blank_extras_as_unset() -> None:
+    env = {"ALPHAVANTAGE_API_KEY": "key-1", "ALPHAVANTAGE_API_KEY_2": ""}
+
+    assert collect_alphavantage_api_keys(env) == ["key-1"]
+
+
+def test_usage_file_for_key_one_keeps_the_original_path() -> None:
+    base = Path("ops/prices/alphavantage_usage.json")
+
+    assert usage_file_for_key(base, 1) == base
+
+
+def test_usage_file_for_key_two_and_three_get_sibling_files() -> None:
+    base = Path("ops/prices/alphavantage_usage.json")
+
+    assert usage_file_for_key(base, 2) == Path("ops/prices/alphavantage_usage_2.json")
+    assert usage_file_for_key(base, 3) == Path("ops/prices/alphavantage_usage_3.json")
+
+
+def test_main_builds_multi_key_provider_and_full_coverage_batch_size_when_extra_keys_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With enough keys to cover the whole ticker list in one run (2 keys *
+    25/day = 50 >= 3 tickers here), main() should stop rotating and attempt
+    every ticker every run (docs/FUNDAMENTALS_INTEGRATION.md 9-11)."""
+    import multica_quant_ops.data.refresh_daily_prices as refresh_module
+    from multica_quant_ops.data.providers.alphavantage import MultiKeyAlphaVantageProvider
+
+    tickers_file = tmp_path / "tickers.txt"
+    tickers_file.write_text("AAPL\nMSFT\nGOOGL\n", encoding="utf-8")
+    output_file = tmp_path / "daily_prices.csv"
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(
+        tickers_file_arg: Path,
+        output_file_arg: Path,
+        provider: object | None = None,
+        **kwargs: object,
+    ) -> int:
+        captured["provider"] = provider
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(refresh_module, "run", _fake_run)
+    monkeypatch.setenv("ALPHAVANTAGE_API_KEY", "key-1")
+    monkeypatch.setenv("ALPHAVANTAGE_API_KEY_2", "key-2")
+
+    exit_code = main(["--tickers-file", str(tickers_file), "--output", str(output_file)])
+
+    assert exit_code == 0
+    assert isinstance(captured["provider"], MultiKeyAlphaVantageProvider)
+    assert captured["batch_size"] == 3  # all 3 tickers, no rotation needed
+
+
+def test_main_respects_explicit_batch_size_even_with_multiple_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import multica_quant_ops.data.refresh_daily_prices as refresh_module
+
+    tickers_file = tmp_path / "tickers.txt"
+    tickers_file.write_text("AAPL\nMSFT\nGOOGL\n", encoding="utf-8")
+    output_file = tmp_path / "daily_prices.csv"
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(
+        tickers_file_arg: Path,
+        output_file_arg: Path,
+        provider: object | None = None,
+        **kwargs: object,
+    ) -> int:
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(refresh_module, "run", _fake_run)
+    monkeypatch.setenv("ALPHAVANTAGE_API_KEY", "key-1")
+    monkeypatch.setenv("ALPHAVANTAGE_API_KEY_2", "key-2")
+
+    exit_code = main(
+        ["--tickers-file", str(tickers_file), "--output", str(output_file), "--batch-size", "1"]
+    )
+
+    assert exit_code == 0
+    assert captured["batch_size"] == 1
 
 
 def test_run_reports_provider_usage_snapshot_when_available(tmp_path: Path) -> None:
