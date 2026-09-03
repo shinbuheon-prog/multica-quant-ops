@@ -533,12 +533,71 @@ User-Agent만으로 안 풀리는 종목이나 IP 대역이 있을 수 있어서
 Vantage 유료 전환, 다른 무료 소스)으로 넘어가는 게 맞다고 판단했습니다 — 세 번째 코드
 추측까지 안 통하면 이건 헤더/쿠키로 풀 수 있는 문제가 아니라고 보는 게 합리적입니다.
 
+### 9-10. Stooq는 결국 자바스크립트 봇 검증이었습니다 — 자동화로는 우회 불가, Alpha Vantage로 전환
+
+9-9절의 세션 프라이밍까지 머지하고 다시 돌렸더니, 이번엔 44종목 전부가 단순 404가 아니라
+**malformed row** 에러로 실패했습니다. 실제 응답 본문을 보니 순수 HTML 404가 아니라
+"This site requires JavaScript to verify your browser. Please enable JavaScript and reload."
+라는 문구와 함께, SHA-256을 브라우저의 `crypto.subtle`로 계산해 `/__verify`에 POST해야
+통과되는 자바스크립트 챌린지(작업증명 방식 봇 검증)가 돌아왔습니다.
+
+이건 헤더나 쿠키로 우회할 수 있는 종류가 전혀 아니고, 이 프로젝트가 명시적으로 하지 않는
+일(봇 탐지 우회/CAPTCHA류 검증 통과 자동화)에 정확히 해당합니다. 그래서 여기서 Stooq
+우회 시도를 완전히 중단했습니다 — User-Agent(9-8), 세션 프라이밍(9-9) 둘 다 "헤더 문제"라는
+가설 아래 시도했지만, 실제로는 처음부터 "이 요청이 자동화된 것인지"를 자바스크립트 실행
+여부로 판별하는 방식이었다는 게 최종 확인된 셈입니다. `StooqMarketDataProvider`와
+`STOOQ_API_KEY` 코드는 저장소에 그대로 남겨뒀습니다(Stooq 쪽 정책이 나중에 다시 바뀔 수도
+있고, `--provider stooq`로 명시적으로 켤 수 있게) — 다만 기본값에서는 뺐습니다.
+
+사용자와 상의해 Alpha Vantage로 전환하기로 결정했습니다(9-3절에서 이미 검토했던 대안).
+Alpha Vantage 무료 티어는 계정당 하루 25회 호출로 44종목을 하루에 다 못 채웁니다 — 9-3절이
+이 문제 때문에 애초에 Stooq를 골랐던 것이니, 이번 전환은 그 트레이드오프를 다시 받아들이는
+결정입니다. 대신 "매일"이 아니라 "며칠에 한 번씩 순환하며 전체가 갱신"되는 방식으로
+구현했습니다:
+
+- `refresh_daily_prices.py`에 `select_ticker_batch(tickers, cursor, batch_size)`를
+  추가했습니다 — 티커 목록에서 `cursor` 위치부터 `batch_size`개를 가져오고(끝에 도달하면
+  앞으로 순환), 다음 실행을 위한 새 `cursor`를 반환합니다. 이 커서는
+  `ops/prices/refresh_cursor.txt`에 정수 하나로 저장·커밋됩니다(GitHub Actions 러너가
+  매번 새로 뜨기 때문에 daily_prices.csv와 마찬가지로 저장소에 커밋해야 다음 실행이 이어서
+  돕니다).
+- 기본 `--batch-size`는 20입니다(무료 티어의 실제 한도 25보다 낮게 잡아서 여유를 둠).
+  44종목이면 3일에 한 바퀴(20+20+4) 순환합니다.
+- 이번 실행 배치에 없는 티커는 "실패"가 아니라 "아직 순번이 안 된 것"으로 취급해 기존 행을
+  그대로 유지합니다(`stale=true`로 바뀌지 않음) — 9-6절 이전부터의 "종목 하나의 실패가
+  전체를 막지 않는다" 원칙과 같은 결의 설계입니다.
+- `AlphaVantageMarketDataProvider.build_free_mode`가 이미 갖고 있던
+  `FileBackedUsageTracker`(하루 호출 수를 파일에 기록)를 그대로 재사용했고, 그 파일도
+  `ops/prices/alphavantage_usage.json`으로 커밋합니다 — 이 트래커의 daily_limit(25)은
+  실제 계정 한도의 안전장치이고, `--batch-size`(20)는 한 번의 실행이 스스로 억제하는
+  상한이라 이중 안전장치입니다.
+- **키 분리가 중요합니다**: `ALPHAVANTAGE_API_KEY`라는 이름 자체는 기존 same-day 준비
+  플로우(`same_day.py`/`same_day_batch.py`)가 로컬에서 이미 쓰던 것과 같지만, 그건 GitHub
+  Actions에서 실행되는 게 아니라 사용자(또는 Cowork 세션)가 직접 돌리는 도구입니다. 이
+  워크플로우에 등록하는 GitHub Secret은 **그 도구와 다른, 이 워크플로우 전용의 새 Alpha
+  Vantage 키**를 쓰길 권합니다 — 같은 키를 공유하면 두 흐름이 하루 25회 한도를 서로
+  모르게 갉아먹을 수 있습니다(Discord/Telegram, STOOQ_API_KEY/ALPHAVANTAGE_API_KEY를
+  각각 분리해 온 것과 같은 원칙). Alpha Vantage 무료 키는 이메일만으로 즉시 발급되고
+  CAPTCHA도 없어서, 두 번째 키를 새로 만드는 데 추가 장벽은 없습니다.
+- `--provider`를 CLI 플래그로 추가해 `alphavantage`(기본)와 `stooq` 중 고를 수 있게
+  했습니다. `refresh-daily-prices.yml`은 플래그 없이(=alphavantage 기본값) 돌아가고,
+  `secrets.ALPHAVANTAGE_API_KEY`를 그 이름 그대로 환경변수로 주입합니다. "Commit updated
+  prices" 스텝은 `daily_prices.csv`뿐 아니라 `refresh_cursor.txt`·
+  `alphavantage_usage.json`도 함께 `git add`합니다(9-6절의 스테이징 후 비교 패턴 그대로).
+
+테스트를 12개 추가했습니다(배치 선택의 순환·경계 케이스, 커서 파일 읽기/쓰기, 부분 배치
+실행 시 배치 밖 티커가 그대로 유지되는지, 연속 실행에서 커서가 실제로 전진하는지, provider
+사용량 스냅샷이 있으면 출력에 반영되는지) — 총 180개 전체 테스트 통과, ruff·mypy 클린.
+이번에도 이 세션에서 Alpha Vantage나 Stooq 어느 쪽도 직접 호출해 재현 테스트는 못 했으니,
+사용자가 새 Alpha Vantage 키를 발급받아 `ALPHAVANTAGE_API_KEY` 시크릿으로 등록하고
+워크플로우를 실행해봐야 최종 확인이 됩니다.
+
 ---
 
 *이 문서는 6개 열린 질문에 대한 결정 + 실행 착수 중 발견한 사실 4건(9-1~9-4)을 반영한
 개정판이며, Phase 6 착수 중 발견한 사실(9-4, 채점 로직 규모)로 Phase 6 방식을 심층
 재작성에서 얇은 어댑터로 수정했고, 9-5·9-6에서 실제 44종목 데이터와 실제 GitHub Actions
-실행으로 각각 버그 1건씩을 확인·수정했으며, 9-7~9-9에서 Stooq 요청 실패 원인을 "API 키
-필수"→"User-Agent 기반 봇 차단"→"세션/쿠키 부재"(또는 IP 차단) 순으로 가설을 낮추며
-검증했습니다(9-9까지도 실전 검증은 다음 워크플로우 실행 대기 중 — 이것도 안 통하면
-헤더/쿠키로는 풀 수 없는 문제라고 결론짓기로 사용자와 합의했습니다).*
+실행으로 각각 버그 1건씩을 확인·수정했으며, 9-7~9-10에서 Stooq 요청 실패 원인을 "API 키
+필수"→"User-Agent 기반 봇 차단"→"세션/쿠키 부재"→"자바스크립트 봇 검증(우회 불가)" 순으로
+가설을 좁혀가며 검증했고, 최종적으로 Stooq를 기본 공급자에서 빼고 Alpha Vantage 무료 티어
+기반 순환 갱신으로 전환했습니다(실전 검증은 사용자의 Alpha Vantage 키 등록 이후 대기 중).*
