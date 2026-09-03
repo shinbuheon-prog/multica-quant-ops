@@ -1,0 +1,9 @@
+# Daily price-refresh universe for scripts/refresh_daily_prices.py.
+# One ticker per line, '#' starts a comment. Stooq US-listed tickers need no
+# suffix (AAPL); non-US tickers use Stooq's own suffix (e.g. 7203.jp).
+#
+# This file is intentionally empty for now. It gets populated during
+# Phase 6 of docs/FUNDAMENTALS_INTEGRATION.md, when the 44 formally-scored
+# + 16 watchlist tickers migrate over from the Cowork pipeline's
+# _watchlist.md. Until then, the daily-price-refresh workflow runs as a
+# harmless no-op (zero tickers to fetch, empty CSV written).
