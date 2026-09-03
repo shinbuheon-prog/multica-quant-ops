@@ -7,18 +7,23 @@ tickers every day (see docs/FUNDAMENTALS_INTEGRATION.md, section 9-3).
 `AlphaVantageMarketDataProvider` remains the provider for the existing
 low-frequency same-day preparation flow; this one is for daily batch refresh.
 
-As of 2026-09 a plain `urllib.request.urlopen(url)` call to `/q/d/l/` (no
-custom headers -- Python's default User-Agent is `Python-urllib/x.y`) gets
-back a 404 for every symbol, while the exact same URL in a real browser
-downloads the CSV with no login, key, or CAPTCHA at all (confirmed
-2026-09-03, see docs/FUNDAMENTALS_INTEGRATION.md section 9-7 and 9-8). That
-points to User-Agent-based bot filtering rather than a universal key
-requirement, so every request sends a browser-like User-Agent header
-(`_BROWSER_HEADERS`) first. `api_key`, if the caller has one (obtained by a
-human passing a CAPTCHA at `https://stooq.com/q/d/?s=<any-ticker>&
+As of 2026-09 a plain `urllib.request.urlopen(url)` call to `/q/d/l/` gets
+back a 404 for every symbol, and a browser-like User-Agent header alone
+did not fix it either (confirmed by an actual GitHub Actions run -- see
+docs/FUNDAMENTALS_INTEGRATION.md section 9-9), even though the exact same
+URL works with no login, key, or CAPTCHA when a real browser requests it
+(section 9-8). A real browser also does something a single bare request
+doesn't: it visits a Stooq page first (picking up session cookies and a
+referer) before ever requesting `/q/d/l/`. So every fetch now primes a
+session once per provider instance -- one GET to the site root with
+`_BROWSER_HEADERS`, keeping whatever `Set-Cookie` comes back -- and sends
+that cookie plus a matching `Referer` on the real request. Priming is
+best-effort: any failure there (network error, unexpected response shape)
+is swallowed and the real request proceeds without a cookie, exactly like
+it did before this existed. `api_key`, if the caller has one (obtained by
+a human passing a CAPTCHA at `https://stooq.com/q/d/?s=<any-ticker>&
 get_apikey` -- this class cannot get one itself and never will), is still
-appended as the `apikey` query parameter as a fallback in case a symbol or
-IP range needs it even with a browser-like header.
+appended as the `apikey` query parameter as a further fallback.
 
 Stooq has no published SLA or rate-limit contract, so callers that need
 resilience across a batch (continue past one failed symbol, keep the previous
@@ -28,6 +33,7 @@ symbol rather than relying on this class to hide failures.
 
 import csv
 import io
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import date
@@ -74,6 +80,8 @@ class StooqMarketDataProvider(MarketDataProvider):
         self.base_url = base_url
         self.timeout_seconds = timeout_seconds
         self.api_key = api_key
+        self._session_primed = False
+        self._cookie_header: str | None = None
 
     def fetch_quote(self, symbol: str) -> MarketQuote:
         bars = self._fetch_daily_bars(symbol, limit=2)
@@ -106,8 +114,15 @@ class StooqMarketDataProvider(MarketDataProvider):
         return self._fetch_daily_bars(symbol, limit=limit)
 
     def _fetch_daily_bars(self, symbol: str, limit: int) -> list[StooqDailyBar]:
+        if not self._session_primed:
+            self._prime_session()
+
         url = self._build_url(symbol)
-        request = urllib.request.Request(url, headers=_BROWSER_HEADERS)
+        headers = dict(_BROWSER_HEADERS)
+        headers["Referer"] = self._site_root()
+        if self._cookie_header:
+            headers["Cookie"] = self._cookie_header
+        request = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
                 raw = response.read().decode("utf-8")
@@ -119,6 +134,35 @@ class StooqMarketDataProvider(MarketDataProvider):
             raise StooqDataError(f"Stooq returned no usable daily bars for {symbol}.")
 
         return bars[-limit:] if limit > 0 else bars
+
+    def _site_root(self) -> str:
+        parts = urllib.parse.urlsplit(self.base_url)
+        return f"{parts.scheme}://{parts.netloc}/"
+
+    def _prime_session(self) -> None:
+        """Best-effort: visit the site root once to pick up session cookies,
+        the way a browser would before ever requesting /q/d/l/. Never raises
+        -- any failure here (network error, odd response shape from a test
+        double, missing headers) just means the real request goes out
+        without a cookie, same as before this existed.
+        """
+        self._session_primed = True  # only ever try once per instance
+        try:
+            request = urllib.request.Request(self._site_root(), headers=_BROWSER_HEADERS)
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                response.read()
+                headers = getattr(response, "headers", None)
+                set_cookie_lines = headers.get_all("Set-Cookie", []) if headers else []
+        except (OSError, AttributeError):
+            # OSError: the priming request itself failed (network, timeout).
+            # AttributeError: a response shape priming didn't expect (e.g. a
+            # test double with no real `headers.get_all`). Either way this
+            # is best-effort, so just proceed without a cookie.
+            return
+
+        pairs = [line.split(";", 1)[0].strip() for line in set_cookie_lines if line.strip()]
+        if pairs:
+            self._cookie_header = "; ".join(pairs)
 
     def _build_url(self, symbol: str) -> str:
         stooq_symbol = symbol.strip().lower()
