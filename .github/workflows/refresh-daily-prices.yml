@@ -6,7 +6,7 @@ name: Refresh daily prices
 # a batch refresh of every ticker in ops/tickers.txt, committed straight
 # back to the repo as ops/prices/daily_prices.csv.
 #
-# Provider: Alpha Vantage (docs/FUNDAMENTALS_INTEGRATION.md 9-9, 9-10).
+# Provider: Alpha Vantage (docs/FUNDAMENTALS_INTEGRATION.md 9-9, 9-10, 9-11).
 # Stooq was the original choice because it needed no key, but by 2026-09 it
 # requires passing a JavaScript proof-of-work challenge that only a real
 # browser can complete -- this project does not automate bot-detection
@@ -15,9 +15,17 @@ name: Refresh daily prices
 # than reusing whatever key the manual same-day-prep flow uses locally --
 # both draw against the same account's 25-calls/day free-tier cap, and a
 # shared key means this workflow's automated runs can silently starve (or
-# be starved by) that flow's daily budget. The free tier can't cover all
-# 44 tickers in one run, so this only attempts ops/prices/refresh_cursor.txt's
-# next batch and rotates -- see the refresh_daily_prices.py module docstring.
+# be starved by) that flow's daily budget. A single key's free tier can't
+# cover all 44 tickers in one run, so by default this only attempts
+# ops/prices/refresh_cursor.txt's next batch and rotates -- see the
+# refresh_daily_prices.py module docstring.
+#
+# Optional: ALPHAVANTAGE_API_KEY_2 and ALPHAVANTAGE_API_KEY_3 secrets add
+# overflow capacity (25 more calls/day each, from their own separate free
+# Alpha Vantage accounts/keys -- not required, referencing a secret that
+# doesn't exist just resolves to an empty string). Once enough keys are
+# registered to cover all 44 tickers in one run, the rotation above stops
+# mattering automatically -- no other change needed (9-11).
 
 on:
   schedule:
@@ -43,6 +51,8 @@ jobs:
         env:
           PYTHONPATH: src
           ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
+          ALPHAVANTAGE_API_KEY_2: ${{ secrets.ALPHAVANTAGE_API_KEY_2 }}
+          ALPHAVANTAGE_API_KEY_3: ${{ secrets.ALPHAVANTAGE_API_KEY_3 }}
         run: |
           python -m multica_quant_ops.data.refresh_daily_prices \
             --tickers-file ops/tickers.txt \
@@ -58,7 +68,14 @@ jobs:
           # changes" even though they were just created. Stage first, then
           # check the *staged* diff against HEAD, which correctly reports
           # a new file as a change too (docs/FUNDAMENTALS_INTEGRATION.md 9-6).
-          git add ops/prices/daily_prices.csv ops/prices/refresh_cursor.txt ops/prices/alphavantage_usage.json
+          # alphavantage_usage_2/_3.json only exist once a second/third key
+          # is registered and actually used (9-11) -- add them if present,
+          # skip quietly otherwise rather than failing the step.
+          for f in ops/prices/daily_prices.csv ops/prices/refresh_cursor.txt \
+                   ops/prices/alphavantage_usage.json ops/prices/alphavantage_usage_2.json \
+                   ops/prices/alphavantage_usage_3.json; do
+            [ -f "$f" ] && git add "$f"
+          done
           if git diff --cached --quiet; then
             echo "No price changes to commit."
             exit 0

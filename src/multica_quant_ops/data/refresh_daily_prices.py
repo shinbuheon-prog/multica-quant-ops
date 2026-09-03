@@ -11,18 +11,23 @@ whole run. Each symbol is fetched independently; on failure the previous
 row is carried forward and flagged `stale=true` rather than dropped, so a
 transient provider hiccup degrades gracefully instead of blanking a price.
 
-Provider history (see docs/FUNDAMENTALS_INTEGRATION.md 9-3, 9-6..9-10):
+Provider history (see docs/FUNDAMENTALS_INTEGRATION.md 9-3, 9-6..9-11):
 Stooq was the original choice specifically because it needed no key, but by
 2026-09 it requires passing a JavaScript proof-of-work challenge that only a
 real browser's JS engine can complete -- automating that is bot-detection
 bypass, which this project does not do, so the default provider is now
-Alpha Vantage (`--provider alphavantage`, the default). Alpha Vantage's free
-tier is 25 calls/day, well under 44 tickers, so a full run only *attempts*
-`--batch-size` tickers (default 20, leaving headroom under the 25 cap) and
-rotates through the ticker list across runs via a persisted cursor file --
-every ticker gets refreshed roughly every couple of days rather than daily,
-which is the honest tradeoff of the free tier rather than something to
-paper over. `--provider stooq` is kept available (with the same-day-flow
+Alpha Vantage (`--provider alphavantage`, the default). A single Alpha
+Vantage free-tier key is 25 calls/day, well under 44 tickers, so with only
+`ALPHAVANTAGE_API_KEY` set a run only *attempts* `--batch-size` tickers
+(default 20, leaving headroom under the 25 cap) and rotates through the
+ticker list across runs via a persisted cursor file -- every ticker gets
+refreshed roughly every couple of days rather than daily. Registering
+additional *dedicated* keys as `ALPHAVANTAGE_API_KEY_2`, `_3`, ... (see
+9-11) raises the combined daily budget by 25 calls each, and once that
+combined budget covers the whole ticker list the rotation naturally
+disappears (every ticker refreshes every run instead of every couple of
+days) -- no flag needed, `--batch-size` still overrides this if set
+explicitly. `--provider stooq` is kept available (with the same-day-flow
 degrade-per-ticker behavior) in case Stooq's requirement changes again.
 """
 
@@ -30,11 +35,15 @@ import argparse
 import csv
 import os
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from multica_quant_ops.data.providers.alphavantage import AlphaVantageMarketDataProvider
+from multica_quant_ops.data.providers.alphavantage import (
+    AlphaVantageMarketDataProvider,
+    MultiKeyAlphaVantageProvider,
+)
 from multica_quant_ops.data.providers.base import MarketDataProvider
 from multica_quant_ops.data.providers.stooq import StooqDataError, StooqMarketDataProvider
 
@@ -151,6 +160,40 @@ def load_cursor(path: Path) -> int:
 def save_cursor(path: Path, cursor: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(str(cursor), encoding="utf-8")
+
+
+def collect_alphavantage_api_keys(env: Mapping[str, str] = os.environ) -> list[str]:
+    """`ALPHAVANTAGE_API_KEY` plus any `ALPHAVANTAGE_API_KEY_2`,
+    `_3`, ... found in order (see docs/FUNDAMENTALS_INTEGRATION.md 9-11).
+    Stops at the first missing/blank suffix, so keys must be numbered
+    contiguously from 2. Each should be a key *dedicated* to this workflow
+    (see the workflow file's header comment) -- sharing one with another
+    flow just moves the quota-collision problem instead of solving it.
+    """
+    keys: list[str] = []
+    primary = env.get("ALPHAVANTAGE_API_KEY")
+    if primary:
+        keys.append(primary)
+    index = 2
+    while True:
+        extra = env.get(f"ALPHAVANTAGE_API_KEY_{index}")
+        if not extra:
+            break
+        keys.append(extra)
+        index += 1
+    return keys
+
+
+def usage_file_for_key(base: Path, key_index: int) -> Path:
+    """Each Alpha Vantage key needs its own usage-tracking file -- sharing
+    one file across keys would conflate independent quotas into a single
+    (wrong) count. Key 1 keeps the original path unchanged (so single-key
+    setups, and history already on disk, are untouched); key N>=2 gets a
+    sibling file named `<stem>_<N><suffix>`.
+    """
+    if key_index <= 1:
+        return base
+    return base.with_name(f"{base.stem}_{key_index}{base.suffix}")
 
 
 def refresh_prices(
@@ -292,10 +335,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=20,
+        default=None,
         help=(
-            "Alpha Vantage only: max tickers to attempt in this run (default 20, "
-            "leaving headroom under the free tier's 25-calls/day cap). Ignored for "
+            "Alpha Vantage only: max tickers to attempt in this run. Defaults to "
+            "20 with a single key (leaving headroom under the free tier's "
+            "25-calls/day cap), or to the full ticker list once enough "
+            "ALPHAVANTAGE_API_KEY_2/_3/... keys are registered to cover it in one "
+            "run (see docs/FUNDAMENTALS_INTEGRATION.md 9-11). Ignored for "
             "--provider stooq, which always attempts every ticker."
         ),
     )
@@ -329,24 +375,49 @@ def main(argv: list[str] | None = None) -> int:
         stooq_provider = StooqMarketDataProvider(api_key=os.environ.get("STOOQ_API_KEY") or None)
         return run(args.tickers_file, args.output, provider=stooq_provider, source_name="stooq")
 
-    api_key = os.environ.get("ALPHAVANTAGE_API_KEY")
-    if not api_key:
+    api_keys = collect_alphavantage_api_keys()
+    if not api_keys:
         raise SystemExit(
             "ALPHAVANTAGE_API_KEY is required for --provider alphavantage (the default). "
             "Set --provider stooq to use the key-less (currently blocked, see "
             "docs/FUNDAMENTALS_INTEGRATION.md 9-9) Stooq provider instead."
         )
-    alphavantage_provider = AlphaVantageMarketDataProvider.build_free_mode(
-        api_key=api_key,
-        usage_file=args.alphavantage_usage_file,
-        daily_limit=args.alphavantage_daily_limit,
-    )
+
+    if len(api_keys) == 1:
+        alphavantage_provider: MarketDataProvider = AlphaVantageMarketDataProvider.build_free_mode(
+            api_key=api_keys[0],
+            usage_file=args.alphavantage_usage_file,
+            daily_limit=args.alphavantage_daily_limit,
+        )
+    else:
+        alphavantage_provider = MultiKeyAlphaVantageProvider(
+            [
+                AlphaVantageMarketDataProvider.build_free_mode(
+                    api_key=key,
+                    usage_file=usage_file_for_key(args.alphavantage_usage_file, index),
+                    daily_limit=args.alphavantage_daily_limit,
+                )
+                for index, key in enumerate(api_keys, start=1)
+            ]
+        )
+
+    batch_size = args.batch_size
+    if batch_size is None:
+        if len(api_keys) == 1:
+            batch_size = 20
+        else:
+            # Enough keys can cover the whole list in one run -- let them,
+            # rather than keeping the single-key rotation cadence around
+            # once it's no longer necessary (docs/FUNDAMENTALS_INTEGRATION.md 9-11).
+            total_capacity = len(api_keys) * args.alphavantage_daily_limit
+            batch_size = min(len(load_ticker_list(args.tickers_file)), total_capacity)
+
     return run(
         args.tickers_file,
         args.output,
         provider=alphavantage_provider,
         cursor_file=args.cursor_file,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         source_name="alphavantage",
     )
 
