@@ -128,3 +128,41 @@ def test_build_url_appends_us_suffix_when_missing() -> None:
 
     assert provider._build_url("AAPL") == "https://stooq.com/q/d/l/?s=aapl.us&i=d"
     assert provider._build_url("7203.jp") == "https://stooq.com/q/d/l/?s=7203.jp&i=d"
+
+
+def test_build_url_omits_apikey_param_when_no_key_configured() -> None:
+    provider = StooqMarketDataProvider()
+
+    assert "apikey" not in provider._build_url("AAPL")
+
+
+def test_build_url_appends_apikey_param_when_key_configured() -> None:
+    provider = StooqMarketDataProvider(api_key="test-key-123")
+
+    assert provider._build_url("AAPL") == "https://stooq.com/q/d/l/?s=aapl.us&i=d&apikey=test-key-123"
+
+
+def test_fetch_daily_bars_sends_a_browser_like_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stooq 404s Python's default urllib User-Agent but serves a real
+    browser's request fine (docs/FUNDAMENTALS_INTEGRATION.md 9-8) -- every
+    request must look like it came from a browser, not from
+    Python-urllib/x.y.
+    """
+    captured: dict[str, object] = {}
+
+    def _fake_urlopen(request: object, timeout: float | None = None) -> _FakeResponse:
+        captured["request"] = request
+        return _FakeResponse(SAMPLE_CSV)
+
+    monkeypatch.setattr(
+        "multica_quant_ops.data.providers.stooq.urllib.request.urlopen", _fake_urlopen
+    )
+    provider = StooqMarketDataProvider()
+
+    provider.fetch_daily_bars("AAPL", limit=1)
+
+    request = captured["request"]
+    user_agent = request.get_header("User-agent")  # urllib title-cases header keys
+    assert user_agent is not None
+    assert "python-urllib" not in user_agent.lower()
+    assert "mozilla" in user_agent.lower()

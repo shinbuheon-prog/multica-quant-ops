@@ -14,6 +14,7 @@ transient Stooq hiccup degrades gracefully instead of blanking a price.
 
 import argparse
 import csv
+import os
 import sys
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
@@ -151,8 +152,13 @@ def write_prices_csv(path: Path, rows: dict[str, PriceRow]) -> None:
             writer.writerow(rows[ticker].to_csv_row())
 
 
-def run(tickers_file: Path, output_file: Path, provider: MarketDataProvider | None = None) -> int:
-    provider = provider or StooqMarketDataProvider()
+def run(
+    tickers_file: Path,
+    output_file: Path,
+    provider: MarketDataProvider | None = None,
+    api_key: str | None = None,
+) -> int:
+    provider = provider or StooqMarketDataProvider(api_key=api_key)
     tickers = load_ticker_list(tickers_file)
     existing = load_existing_prices(output_file)
     now = datetime.now(UTC)
@@ -188,7 +194,13 @@ def main(argv: list[str] | None = None) -> int:
         help="CSV file to write/update.",
     )
     args = parser.parse_args(argv)
-    return run(args.tickers_file, args.output)
+    # Stooq's /q/d/l/ endpoint has required a key since 2026-03 (see
+    # docs/FUNDAMENTALS_INTEGRATION.md 9-7) -- read it from the environment
+    # rather than a CLI flag so it never appears in a shell history or a
+    # workflow log. Missing/empty is fine: every request will 404 and each
+    # ticker degrades to stale=true via the same per-symbol failure path as
+    # any other Stooq outage.
+    return run(args.tickers_file, args.output, api_key=os.environ.get("STOOQ_API_KEY") or None)
 
 
 if __name__ == "__main__":
