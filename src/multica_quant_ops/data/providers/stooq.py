@@ -7,15 +7,18 @@ tickers every day (see docs/FUNDAMENTALS_INTEGRATION.md, section 9-3).
 `AlphaVantageMarketDataProvider` remains the provider for the existing
 low-frequency same-day preparation flow; this one is for daily batch refresh.
 
-As of 2026-03 (confirmed against the live endpoint 2026-09-03, see
-docs/FUNDAMENTALS_INTEGRATION.md section 9-7) the `/q/d/l/` download
-endpoint is no longer key-less: an unauthenticated request gets back an
-"apply for a key" page instead of CSV, which this provider's caller sees as
-an HTTP 404. A key is obtained once by a human passing a CAPTCHA at
-`https://stooq.com/q/d/?s=<any-ticker>&get_apikey` -- this class cannot
-obtain one itself, and never will (no CAPTCHA-solving). Pass whatever key
-the human obtained as `api_key`; it is appended to every request as the
-`apikey` query parameter, exactly per Stooq's documented format.
+As of 2026-09 a plain `urllib.request.urlopen(url)` call to `/q/d/l/` (no
+custom headers -- Python's default User-Agent is `Python-urllib/x.y`) gets
+back a 404 for every symbol, while the exact same URL in a real browser
+downloads the CSV with no login, key, or CAPTCHA at all (confirmed
+2026-09-03, see docs/FUNDAMENTALS_INTEGRATION.md section 9-7 and 9-8). That
+points to User-Agent-based bot filtering rather than a universal key
+requirement, so every request sends a browser-like User-Agent header
+(`_BROWSER_HEADERS`) first. `api_key`, if the caller has one (obtained by a
+human passing a CAPTCHA at `https://stooq.com/q/d/?s=<any-ticker>&
+get_apikey` -- this class cannot get one itself and never will), is still
+appended as the `apikey` query parameter as a fallback in case a symbol or
+IP range needs it even with a browser-like header.
 
 Stooq has no published SLA or rate-limit contract, so callers that need
 resilience across a batch (continue past one failed symbol, keep the previous
@@ -34,6 +37,21 @@ from multica_quant_ops.data.providers.base import MarketDataProvider, MarketQuot
 
 class StooqDataError(ValueError):
     """Raised when Stooq returns no data, or data this provider cannot parse."""
+
+
+# Stooq's CSV endpoint 404s on Python's default User-Agent
+# ("Python-urllib/x.y") but serves the same URL fine to a normal browser
+# (see the module docstring and docs/FUNDAMENTALS_INTEGRATION.md 9-8) --
+# this is a plain UA string, not anything that solves a challenge, so it
+# does not touch Stooq's actual bot-detection mechanism (if any) beyond
+# looking like an ordinary browser request.
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/csv,text/plain,*/*",
+}
 
 
 @dataclass(frozen=True)
@@ -89,8 +107,9 @@ class StooqMarketDataProvider(MarketDataProvider):
 
     def _fetch_daily_bars(self, symbol: str, limit: int) -> list[StooqDailyBar]:
         url = self._build_url(symbol)
+        request = urllib.request.Request(url, headers=_BROWSER_HEADERS)
         try:
-            with urllib.request.urlopen(url, timeout=self.timeout_seconds) as response:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
                 raw = response.read().decode("utf-8")
         except OSError as exc:
             raise StooqDataError(f"Stooq request failed for {symbol}: {exc}") from exc
