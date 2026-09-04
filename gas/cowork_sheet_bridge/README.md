@@ -50,3 +50,24 @@
 그대로 들고 온 경우)면 파이프라인 CSV보다 우선하지 않습니다 -- `stale` 플래그의 의미는
 `docs/FUNDAMENTALS_INTEGRATION.md` 5-4절과 `refresh_daily_prices.py`의 모듈 문서를
 참고하세요.
+
+## GitHub metrics-sheet bridge
+
+`github_sheet_export_source.gs` extends the same bridge pattern to
+`ops/fundamentals/sheet_export.csv`. Add it to the existing Cowork sheet Apps
+Script project as a separate file; it does not replace or modify the checked-in
+dashboard script automatically.
+
+1. Confirm that `GITHUB_SHEET_EXPORT_CONFIG.RAW_URL` points to the branch that
+   publishes the current `sheet_export.csv`.
+2. For a private repository, set `REQUIRES_AUTH` to `true` and store a
+   read-only GitHub token in Script Properties as `GITHUB_PAT`. Never place the
+   token in source code.
+3. Run `refreshMetricsFromGithub()` manually once and verify the metrics sheet
+   and execution log before connecting it to a menu item or time-driven trigger.
+4. Keep `ops/fundamentals/sheet_export.csv` current in GitHub. The bridge reads
+   the last pushed file; it does not run the export pipeline itself.
+
+Fetch and validation failures stop the refresh before the existing metrics
+sheet is cleared, so a transient GitHub or authentication failure leaves the
+previous sheet contents intact.
