@@ -51,23 +51,23 @@
 `docs/FUNDAMENTALS_INTEGRATION.md` 5-4ì ˆê³¼ `refresh_daily_prices.py`ì˜ ëª¨ë“ˆ ë¬¸ì„œë¥¼
 ì°¸ê³ í•˜ì„¸ìš”.
 
-## GitHub metrics-sheet bridge
+## GitHub ÁöÇ¥ ½ÃÆ® ºê¸®Áö
 
-`github_sheet_export_source.gs` extends the same bridge pattern to
-`ops/fundamentals/sheet_export.csv`. Add it to the existing Cowork sheet Apps
-Script project as a separate file; it does not replace or modify the checked-in
-dashboard script automatically.
+`github_sheet_export_source.gs`´Â °°Àº ºê¸®Áö ¹æ½ÄÀ»
+`ops/fundamentals/sheet_export.csv` ÀüÃ¼¿¡ Àû¿ëÇÏ´Â Âü°í ÄÚµåÀÔ´Ï´Ù. ±âÁ¸ Cowork
+½ÃÆ®ÀÇ Apps Script ÇÁ·ÎÁ§Æ®¿¡ º°µµ ÆÄÀÏ·Î Ãß°¡ÇÏ¼¼¿ä. ÀúÀå¼ÒÀÇ ´ë½Ãº¸µå ½ºÅ©¸³Æ®¸¦
+ÀÚµ¿À¸·Î ±³Ã¼ÇÏ°Å³ª ¼öÁ¤ÇÏÁö´Â ¾Ê½À´Ï´Ù.
 
-1. Confirm that `GITHUB_SHEET_EXPORT_CONFIG.RAW_URL` points to the branch that
-   publishes the current `sheet_export.csv`.
-2. For a private repository, set `REQUIRES_AUTH` to `true` and store a
-   read-only GitHub token in Script Properties as `GITHUB_PAT`. Never place the
-   token in source code.
-3. Run `refreshMetricsFromGithub()` manually once and verify the metrics sheet
-   and execution log before connecting it to a menu item or time-driven trigger.
-4. Keep `ops/fundamentals/sheet_export.csv` current in GitHub. The bridge reads
-   the last pushed file; it does not run the export pipeline itself.
+1. `GITHUB_SHEET_EXPORT_CONFIG.RAW_URL`ÀÌ ÃÖ½Å `sheet_export.csv`¸¦ °Ô½ÃÇÏ´Â
+   ºê·£Ä¡¸¦ °¡¸®Å°´ÂÁö È®ÀÎÇÏ¼¼¿ä.
+2. private ÀúÀå¼Ò¶ó¸é `REQUIRES_AUTH`¸¦ `true`·Î ¹Ù²Ù°í, read-only GitHub
+   ÅäÅ«À» Script PropertiesÀÇ `GITHUB_PAT`¿¡ ÀúÀåÇÏ¼¼¿ä. ÅäÅ«À» ¼Ò½º ÄÚµå¿¡ Á÷Á¢
+   ÀûÁö ¸¶¼¼¿ä.
+3. `refreshMetricsFromGithub()`¸¦ ÇÑ ¹ø ¼öµ¿ ½ÇÇàÇÑ µÚ ÁöÇ¥ ½ÃÆ®¿Í ½ÇÇà ·Î±×¸¦
+   È®ÀÎÇÏ¼¼¿ä. °ËÁõÀÌ ³¡³­ ´ÙÀ½ ¸Ş´º³ª ½Ã°£ ±â¹İ Æ®¸®°Å¿¡ ¿¬°áÇÏ¼¼¿ä.
+4. GitHubÀÇ `ops/fundamentals/sheet_export.csv`¸¦ ÃÖ½Å »óÅÂ·Î À¯ÁöÇÏ¼¼¿ä. ÀÌ
+   ºê¸®Áö´Â ¸¶Áö¸·À¸·Î pushµÈ ÆÄÀÏÀ» ÀĞÀ» »Ó, export pipeline ÀÚÃ¼¸¦ ½ÇÇàÇÏÁö´Â
+   ¾Ê½À´Ï´Ù.
 
-Fetch and validation failures stop the refresh before the existing metrics
-sheet is cleared, so a transient GitHub or authentication failure leaves the
-previous sheet contents intact.
+°¡Á®¿À±â³ª °ËÁõÀÌ ½ÇÆĞÇÏ¸é ±âÁ¸ ÁöÇ¥ ½ÃÆ®¸¦ Áö¿ì±â Àü¿¡ °»½ÅÀ» Áß´ÜÇÕ´Ï´Ù. µû¶ó¼­
+ÀÏ½ÃÀûÀÎ GitHub Àå¾Ö³ª ÀÎÁõ ½ÇÆĞ°¡ ¹ß»ıÇØµµ ±âÁ¸ ½ÃÆ® ³»¿ëÀº ±×´ë·Î À¯ÁöµË´Ï´Ù.
